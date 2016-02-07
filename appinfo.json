@@ -1,0 +1,24 @@
+{
+    "appKeys": {},
+    "capabilities": [
+        "health"
+    ],
+    "companyName": "thejambi@gmail.com",
+    "enableMultiJS": true,
+    "longName": "ActiveHour",
+    "projectType": "native",
+    "resources": {
+        "media": []
+    },
+    "sdkVersion": "3",
+    "shortName": "ActiveHour",
+    "targetPlatforms": [
+        "basalt",
+        "chalk"
+    ],
+    "uuid": "6ca82f56-3eb0-4b73-be83-0659d6989ead",
+    "versionLabel": "1.1",
+    "watchapp": {
+        "watchface": true
+    }
+}
