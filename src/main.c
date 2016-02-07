@@ -63,6 +63,9 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   // Save total step count
   s_lastStepTotal = getTotalStepsToday();
   
+  // Start nenext minute fresh 
+  s_dotArray[s_last_time.minutes] = 0;
+  
   layer_mark_dirty(s_canvas_layer);
   
   update_time();
@@ -85,7 +88,6 @@ static int getNumDots() {
   if (lastSteps > EXTRA_DOT_THRESHOLD) {
     dots++;
   }
-  s_dotArray[s_last_time.minutes]++;
   
   int returnDots = dots;
   if (dots < 1) {
