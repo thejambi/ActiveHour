@@ -5,7 +5,20 @@
 #define DOT_DISTANCE         60
 #define DOT_SPACING          6
 #define EXTRA_DOT_THRESHOLD  11
-#define DOT_STEP_COUNT       35
+#define DOT_STEP_COUNT       30
+
+#define BOLD_TIME   false
+
+// Persist
+#define PERSIST_DEFAULTS_SET 228483
+
+#define PERSIST_KEY_DATE        0
+#define PERSIST_KEY_STEPS       1
+#define PERSIST_KEY_CLR_BW      2
+#define PERSIST_KEY_CLR_ORANGE  3
+#define PERSIST_KEY_CLR_GREEN   4
+#define NUM_SETTINGS            5
+
 
 typedef struct {
   int days;
@@ -18,12 +31,105 @@ static Window *s_main_window;
 static TextLayer *s_time_layer, *s_step_count_layer, *s_dayt_layer;
 static Layer *s_canvas_layer;
 static Time s_last_time;
-static char s_step_count_buffer[5], s_dayt_buffer[12];
+static char s_step_count_buffer[6], s_dayt_buffer[12];
 
 static int s_dotArray[60];
 static int s_lastStepTotal = 0;
 static int s_minuteActivityCount = 0;
 static int s_lastMinSteps = 0;
+
+/* Config */
+static bool s_arr[NUM_SETTINGS];
+
+bool config_get(int key) {
+  return s_arr[key];
+}
+
+void config_init() {
+  // Set defaults
+  if(!persist_exists(PERSIST_DEFAULTS_SET)) {
+    persist_write_bool(PERSIST_DEFAULTS_SET, true);
+
+    persist_write_bool(PERSIST_KEY_DATE, false);
+    persist_write_bool(PERSIST_KEY_STEPS, false);
+    persist_write_bool(PERSIST_KEY_CLR_ORANGE, false);
+  }
+
+  for(int i = 0; i < NUM_SETTINGS; i++) {
+    s_arr[i] = persist_read_bool(i);
+  }
+  
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "DATE : %d", config_get(PERSIST_KEY_DATE));
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "STEPS: %d", config_get(PERSIST_KEY_STEPS));
+}
+
+static GColor8 getTimeColor() {
+  if (config_get(PERSIST_KEY_CLR_ORANGE)) {
+    return GColorOrange;
+  } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
+    return GColorChromeYellow;
+  }
+  // BW
+  return GColorWhite;
+}
+
+static GColor8 getDotMainColor() {
+  if (config_get(PERSIST_KEY_CLR_ORANGE)) {
+    return GColorOrange;
+  } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
+    return GColorGreen;
+  }
+  // BW
+  return GColorWhite;
+}
+
+static GColor8 getDotDarkColor() {
+  if (config_get(PERSIST_KEY_CLR_ORANGE)) {
+    return GColorDarkGray;
+  } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
+    return GColorDarkGreen;
+  }
+  // BW
+  return GColorDarkGray;
+}
+
+static GColor8 getStepCountColor() {
+  if (config_get(PERSIST_KEY_CLR_ORANGE)) {
+    return GColorRajah;
+  } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
+    return GColorGreen;
+  }
+  // BW
+  return GColorLightGray;
+}
+
+static GColor8 getDateColor() {
+  if (config_get(PERSIST_KEY_CLR_ORANGE)) {
+    return GColorRajah;
+  } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
+    return GColorGreen;
+  }
+  // BW
+  return GColorLightGray;
+}
+
+static void clearDate() {
+  snprintf(s_dayt_buffer, sizeof(s_dayt_buffer), "            ");
+  text_layer_set_text(s_dayt_layer, s_dayt_buffer);
+}
+
+static void clearSteps() {
+  snprintf(s_step_count_buffer, sizeof(s_step_count_buffer), "      ");
+  text_layer_set_text(s_step_count_layer, s_step_count_buffer);
+}
+
+static void updateStepsLabel() {
+  if (config_get(PERSIST_KEY_STEPS)) {
+    // Update step count text
+    snprintf(s_step_count_buffer, sizeof(s_step_count_buffer), "%d", s_lastStepTotal);
+    text_layer_set_text(s_step_count_layer, s_step_count_buffer);
+  }
+}
 
 static void update_time() {
   time_t temp = time(NULL); 
@@ -39,8 +145,56 @@ static void update_time() {
   text_layer_set_text(s_time_layer, buffer);
   
   // Date
-  strftime(s_dayt_buffer, sizeof(s_dayt_buffer), "%a, %b %e", tick_time);
-  text_layer_set_text(s_dayt_layer, s_dayt_buffer);
+  if (config_get(PERSIST_KEY_DATE)) {
+    strftime(s_dayt_buffer, sizeof(s_dayt_buffer), "%a, %b %e", tick_time);
+    text_layer_set_text(s_dayt_layer, s_dayt_buffer);
+  } else {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "APPARENTLY NOT DATE: %d", config_get(PERSIST_KEY_DATE));
+  }
+}
+
+static void setLayerTextColors() {
+  text_layer_set_text_color(s_time_layer, getTimeColor());
+  text_layer_set_text_color(s_step_count_layer, getStepCountColor());
+  text_layer_set_text_color(s_dayt_layer, getDateColor());
+}
+
+static void in_recv_handler(DictionaryIterator *iter, void *context) {
+    Tuple *t = dict_read_first(iter);
+    while(t) {
+      persist_write_bool(t->key, strcmp(t->value->cstring, "true") == 0 ? true : false);
+      t = dict_read_next(iter);
+    }
+  
+    // Refresh live store
+    config_init();
+    vibes_short_pulse();
+  
+  // Update display based on new config data
+  if (!config_get(PERSIST_KEY_DATE)) {
+    clearDate();
+  } else {
+    update_time();
+  }
+  if (!config_get(PERSIST_KEY_STEPS)) {
+    clearSteps();
+  } else {
+    updateStepsLabel();
+  }
+  setLayerTextColors();
+  layer_mark_dirty(s_canvas_layer);
+}
+
+static void inbox_dropped_callback(AppMessageResult reason, void *context) {
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped!");
+}
+
+static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed!");
+}
+
+static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
 }
 
 static int getTotalStepsToday() {
@@ -80,21 +234,19 @@ static int calculateDotsFromMinuteSteps(int numSteps) {
 }
 
 static void fetchPastMinuteSteps() {
-  APP_LOG(APP_LOG_LEVEL_INFO, "Getting minute steps");
-  
   time_t temp = time(NULL); 
   struct tm *tick_time = localtime(&temp);
   
   int currentMinute = tick_time->tm_min;
   
   // Create an array to store data
-  const uint32_t max_records = 120;
+  const uint32_t max_records = 60;//120;
   HealthMinuteData *minute_data = (HealthMinuteData*)
                                 malloc(max_records * sizeof(HealthMinuteData));
   
   // Make a timestamp for an hour ago and now
   time_t end = time(NULL);
-  time_t start = end - SECONDS_PER_HOUR - SECONDS_PER_HOUR;
+  time_t start = end - SECONDS_PER_HOUR;// - SECONDS_PER_HOUR;
   
   // Obtain the minute-by-minute records
   uint32_t num_records = health_service_get_minute_history(minute_data, 
@@ -104,13 +256,11 @@ static void fetchPastMinuteSteps() {
   // Print the number of steps for each minute
   for(uint32_t i = 0; i < num_records; i++) {
     int numSteps = (int)minute_data[i].steps;
-//     APP_LOG(APP_LOG_LEVEL_INFO, "Item %d steps: %d", (int)i, numSteps);
     s_dotArray[((int)i + 1 + currentMinute) % 60] = calculateDotsFromMinuteSteps(numSteps);
-    APP_LOG(APP_LOG_LEVEL_INFO, "i is: %d", ((int)i + 1 + currentMinute) % 60);
   }
   
   for (int i = ((int)num_records + 1 + currentMinute) % 60; i < currentMinute; i++) {
-    s_dotArray[i] = 0;
+    s_dotArray[i] = 1;
     APP_LOG(APP_LOG_LEVEL_INFO, "i is: %d\tcleanup", i % 60);
   }
   
@@ -130,7 +280,7 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   s_lastStepTotal = getTotalStepsToday();
   
   // Start next minute fresh 
-  s_dotArray[s_last_time.minutes] = 0;
+  s_dotArray[s_last_time.minutes] = 1;
   s_minuteActivityCount = 0;
   s_lastMinSteps = 0;
   
@@ -151,6 +301,8 @@ static int getNumDots() {
   
   // Save new total step count
   s_lastStepTotal = totalSteps;
+  
+  updateStepsLabel();
   
   /* The old way
   int dots = s_dotArray[s_last_time.minutes];
@@ -192,16 +344,16 @@ static void draw_proc(Layer *layer, GContext *ctx) {
 
   for (int m = 0; m <= 59; m++) {
     if (m <= lastMin) {
-      graphics_context_set_fill_color(ctx, GColorWhite);
+      graphics_context_set_fill_color(ctx, getDotMainColor());
     } else {
-      graphics_context_set_fill_color(ctx, GColorDarkGray);
+      graphics_context_set_fill_color(ctx, getDotDarkColor());
     }
     
     int v = DOT_DISTANCE;
     
     int numDots = s_dotArray[m];
     
-    if (m == lastMin || SCREENSHOT_RUN) {
+    if (m == lastMin) {
       numDots = getNumDots();
       s_dotArray[m] = numDots;
     } else if (numDots == 0 && m <= lastMin) {
@@ -226,10 +378,6 @@ static void draw_proc(Layer *layer, GContext *ctx) {
       v += DOT_SPACING;
     }
   }
-  
-  // Update step count text
-  snprintf(s_step_count_buffer, sizeof(s_step_count_buffer), "%d", s_lastStepTotal);
-  text_layer_set_text(s_step_count_layer, s_step_count_buffer);
 }
 
 static void health_handler(HealthEventType event, void *context) {
@@ -253,31 +401,48 @@ static void health_handler(HealthEventType event, void *context) {
   }
 }
 
+void comm_init() {
+  app_message_register_inbox_received(in_recv_handler);
+  
+  // Register callbacks
+  app_message_register_inbox_dropped(inbox_dropped_callback);
+  app_message_register_outbox_failed(outbox_failed_callback);
+  app_message_register_outbox_sent(outbox_sent_callback);
+  
+  app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+}
+
 static void main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
 
   s_time_layer = text_layer_create(GRect(0, PBL_IF_ROUND_ELSE(61, 55), bounds.size.w, 50));  
   text_layer_set_background_color(s_time_layer, GColorClear);
-  text_layer_set_text_color(s_time_layer, GColorWhite);
+//   text_layer_set_text_color(s_time_layer, getWhiteColor());
   text_layer_set_text(s_time_layer, "00:00");
-  text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT));
+  if (BOLD_TIME) {
+    text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
+  } else {
+    text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT));
+  }
   text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(s_time_layer));
   
   s_step_count_layer = text_layer_create(GRect(0, PBL_IF_ROUND_ELSE(45, 40), bounds.size.w, 40));
   text_layer_set_text_alignment(s_step_count_layer, GTextAlignmentCenter);
   text_layer_set_font(s_step_count_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
-  text_layer_set_text_color(s_step_count_layer, GColorLightGray);
+//   text_layer_set_text_color(s_step_count_layer, getLightGrayColor());
   text_layer_set_background_color(s_step_count_layer, GColorClear);
   layer_add_child(window_layer, text_layer_get_layer(s_step_count_layer));
   
   s_dayt_layer = text_layer_create(GRect(0, PBL_IF_ROUND_ELSE(106, 100), bounds.size.w, 40));
   text_layer_set_text_alignment(s_dayt_layer, GTextAlignmentCenter);
   text_layer_set_font(s_dayt_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
-  text_layer_set_text_color(s_dayt_layer, GColorLightGray);
+//   text_layer_set_text_color(s_dayt_layer, getLightGrayColor());
   text_layer_set_background_color(s_dayt_layer, GColorClear);
   layer_add_child(window_layer, text_layer_get_layer(s_dayt_layer));
+  
+  setLayerTextColors();
   
   s_canvas_layer = layer_create(bounds);
   layer_set_update_proc(s_canvas_layer, draw_proc);
@@ -294,6 +459,9 @@ static void main_window_unload(Window *window) {
 
 
 static void init() {
+  comm_init();
+  config_init();
+  
   // Create main Window element and assign to pointer
   s_main_window = window_create();
   window_set_background_color(s_main_window, GColorBlack);

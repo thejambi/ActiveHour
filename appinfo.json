@@ -1,6 +1,13 @@
 {
-    "appKeys": {},
+    "appKeys": {
+        "PERSIST_KEY_CLR_BW": 2,
+        "PERSIST_KEY_CLR_GREEN": 4,
+        "PERSIST_KEY_CLR_ORANGE": 3,
+        "PERSIST_KEY_DATE": 0,
+        "PERSIST_KEY_STEPS": 1
+    },
     "capabilities": [
+        "configurable",
         "health"
     ],
     "companyName": "thejambi@gmail.com",
@@ -17,7 +24,7 @@
         "chalk"
     ],
     "uuid": "6ca82f56-3eb0-4b73-be83-0659d6989ead",
-    "versionLabel": "1.2",
+    "versionLabel": "1.4",
     "watchapp": {
         "watchface": true
     }
