@@ -12,7 +12,8 @@ Pebble.addEventListener('webviewclosed', function(e) {
     "PERSIST_KEY_STEPS": '' + json.steps,
     "PERSIST_KEY_CLR_BW": '' + json.clr_bw,
     "PERSIST_KEY_CLR_ORANGE": '' + json.clr_orange,
-    "PERSIST_KEY_CLR_GREEN": '' + json.clr_green
+    "PERSIST_KEY_CLR_GREEN": '' + json.clr_green,
+    "PERSIST_KEY_CLR_BLUE": '' + json.clr_blue
   };
 
   Pebble.sendAppMessage(options,

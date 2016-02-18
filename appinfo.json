@@ -1,5 +1,6 @@
 {
     "appKeys": {
+        "PERSIST_KEY_CLR_BLUE": 5,
         "PERSIST_KEY_CLR_BW": 2,
         "PERSIST_KEY_CLR_GREEN": 4,
         "PERSIST_KEY_CLR_ORANGE": 3,
@@ -24,7 +25,7 @@
         "chalk"
     ],
     "uuid": "6ca82f56-3eb0-4b73-be83-0659d6989ead",
-    "versionLabel": "1.4",
+    "versionLabel": "1.6",
     "watchapp": {
         "watchface": true
     }
