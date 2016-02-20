@@ -6,8 +6,8 @@
 #define DOT_SPACING          6
 #define EXTRA_DOT_THRESHOLD  11
 #define DOT_STEP_COUNT       30
-
-#define BOLD_TIME   false
+#define DOT_SIZE_DEFAULT     1
+#define DOT_SIZE_BOLD        2
 
 // Persist
 #define PERSIST_DEFAULTS_SET 228483
@@ -18,7 +18,13 @@
 #define PERSIST_KEY_CLR_ORANGE  3
 #define PERSIST_KEY_CLR_GREEN   4
 #define PERSIST_KEY_CLR_BLUE    5
-#define NUM_SETTINGS            6
+#define PERSIST_KEY_WEATHER     6
+#define PERSIST_KEY_BOLD_TEXT   7
+#define PERSIST_KEY_BOLD_DOTS   8
+#define NUM_SETTINGS            9
+
+#define KEY_TEMPERATURE 101
+#define KEY_JSREADY     102
 
 
 typedef struct {
@@ -40,8 +46,14 @@ static int s_lastMinSteps = 0;
 
 static bool s_loadedWithMissingData = true;
 
-/* Config */
+static bool hasWeather = false;
+static int weatherTemp;
+
+static int s_dotSize = DOT_SIZE_DEFAULT;
+
 static bool s_arr[NUM_SETTINGS];
+
+/* Config */
 
 bool config_get(int key) {
   if (SCREENSHOT_RUN) {
@@ -72,14 +84,20 @@ void config_init() {
     persist_write_bool(PERSIST_KEY_CLR_ORANGE, false);
     persist_write_bool(PERSIST_KEY_CLR_GREEN, false);
     persist_write_bool(PERSIST_KEY_CLR_BLUE, false);
+    persist_write_bool(PERSIST_KEY_WEATHER, false);
+    persist_write_bool(PERSIST_KEY_BOLD_TEXT, false);
+    persist_write_bool(PERSIST_KEY_BOLD_DOTS, false);
   }
 
   for(int i = 0; i < NUM_SETTINGS; i++) {
     s_arr[i] = persist_read_bool(i);
   }
   
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "DATE : %d", config_get(PERSIST_KEY_DATE));
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "STEPS: %d", config_get(PERSIST_KEY_STEPS));
+  if (config_get(PERSIST_KEY_BOLD_DOTS)) {
+    s_dotSize = DOT_SIZE_BOLD;
+  } else {
+    s_dotSize = DOT_SIZE_DEFAULT;
+  }
 }
 
 static GColor8 getTimeColor() {
@@ -164,7 +182,6 @@ static int getSleepSeconds() {
   if(mask & HealthServiceAccessibilityMaskAvailable) {
     // Data is available!
     int sleeps = (int)health_service_sum_today(metric);
-    APP_LOG(APP_LOG_LEVEL_INFO, "Sleep seconds data: %d", sleeps);
     return sleeps;
   } else {
     // No data recorded yet today
@@ -210,8 +227,6 @@ static void update_time() {
   if (config_get(PERSIST_KEY_DATE)) {
     strftime(s_dayt_buffer, sizeof(s_dayt_buffer), "%a, %b %e", tick_time);
     text_layer_set_text(s_dayt_layer, s_dayt_buffer);
-  } else {
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "APPARENTLY NOT DATE: %d", config_get(PERSIST_KEY_DATE));
   }
 }
 
@@ -221,7 +236,46 @@ static void setLayerTextColors() {
   text_layer_set_text_color(s_dayt_layer, getDateColor());
 }
 
+static void setLayerFonts() {
+  if (config_get(PERSIST_KEY_BOLD_TEXT)) {
+    text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
+    text_layer_set_font(s_step_count_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+    text_layer_set_font(s_dayt_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  } else {
+    text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT));
+    text_layer_set_font(s_step_count_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
+    text_layer_set_font(s_dayt_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
+  }
+}
+
+void send_initial_js_message() {
+  if (config_get(PERSIST_KEY_WEATHER)) {
+    // Begin dictionary
+    DictionaryIterator *iter;
+    app_message_outbox_begin(&iter);
+  
+    // Add a key-value pair
+    int val = config_get(PERSIST_KEY_WEATHER) ? 1 : 0;
+    dict_write_uint8(iter, PERSIST_KEY_WEATHER, val);
+  
+    // Send the message!
+    app_message_outbox_send();
+  }
+}
+
 static void in_recv_handler(DictionaryIterator *iter, void *context) {
+  // Read tuple for data
+  Tuple *temp_tuple = dict_find(iter, KEY_TEMPERATURE);
+  Tuple *jsr_tuple = dict_find(iter, KEY_JSREADY);
+
+  if (temp_tuple) {
+    weatherTemp = (int)temp_tuple->value->int32;
+    hasWeather = true;
+    layer_mark_dirty(s_canvas_layer);
+  } else if (jsr_tuple) {
+    // Send weather pref to js
+    send_initial_js_message();
+  } else {
     Tuple *t = dict_read_first(iter);
     while(t) {
       persist_write_bool(t->key, strcmp(t->value->cstring, "true") == 0 ? true : false);
@@ -231,8 +285,10 @@ static void in_recv_handler(DictionaryIterator *iter, void *context) {
     // Refresh live store
     config_init();
     vibes_short_pulse();
+  }
   
-  // Update display based on new config data
+  
+  /* Update display based on new config data */
   if (!config_get(PERSIST_KEY_DATE)) {
     clearDate();
   } else {
@@ -243,7 +299,11 @@ static void in_recv_handler(DictionaryIterator *iter, void *context) {
   } else {
     updateStepsLabel();
   }
+  
+  send_initial_js_message();
+  
   setLayerTextColors();
+  setLayerFonts();
   layer_mark_dirty(s_canvas_layer);
 }
 
@@ -270,7 +330,6 @@ static int getTotalStepsToday() {
   
   if(mask & HealthServiceAccessibilityMaskAvailable) {
     int totalSteps = (int)health_service_sum_today(metric);
-    APP_LOG(APP_LOG_LEVEL_INFO, "Steps today: %d", totalSteps);
     return totalSteps;
   } else {
     return 0;
@@ -313,7 +372,6 @@ static void fetchPastMinuteSteps() {
   // Obtain the minute-by-minute records
   uint32_t num_records = health_service_get_minute_history(minute_data, 
                                                     max_records, &start, &end);
-  APP_LOG(APP_LOG_LEVEL_INFO, "num_records: %d", (int)num_records);
   
   // Print the number of steps for each minute
   for(uint32_t i = 0; i < num_records; i++) {
@@ -323,7 +381,6 @@ static void fetchPastMinuteSteps() {
   
   for (int i = ((int)num_records + 1 + currentMinute) % 60; i < currentMinute; i++) {
     s_dotArray[i] = 1;
-    APP_LOG(APP_LOG_LEVEL_INFO, "i is: %d\tcleanup", i % 60);
   }
   
   // Free the array
@@ -349,12 +406,26 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   if (s_loadedWithMissingData && tick_time->tm_min % 15 == 1) {
     fetchPastMinuteSteps();
     s_loadedWithMissingData = false;
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded missing data, never doing it again!");
   }
   
   layer_mark_dirty(s_canvas_layer);
   
   update_time();
+  
+  if (config_get(PERSIST_KEY_WEATHER)) {
+    // Get weather update every 30 minutes
+    if(tick_time->tm_min % 30 == 0) {
+      // Begin dictionary
+      DictionaryIterator *iter;
+      app_message_outbox_begin(&iter);
+    
+      // Add a key-value pair
+      dict_write_uint8(iter, 0, 0);
+    
+      // Send the message!
+      app_message_outbox_send();
+    }
+  }
 }
 
 /* Return number of dots to show for previous minute. Between 1 and 5. */
@@ -430,12 +501,38 @@ static void draw_proc(Layer *layer, GContext *ctx) {
             .x = (int16_t)(sin_lookup(TRIG_MAX_ANGLE * m / 60) * (int32_t)(v) / TRIG_MAX_RATIO) + center.x,
             .y = (int16_t)(-cos_lookup(TRIG_MAX_ANGLE * m / 60) * (int32_t)(v) / TRIG_MAX_RATIO) + center.y,
           };
-          graphics_fill_circle(ctx, GPoint(point.x + x, point.y + y), 1);
+          graphics_fill_circle(ctx, GPoint(point.x + x, point.y + y), s_dotSize);
         }
       }
       
       // Draw next dot farther away
       v += DOT_SPACING;
+    }
+  }
+  
+  if (config_get(PERSIST_KEY_WEATHER) && hasWeather) {
+    // Get weather "minute"
+    int m = weatherTemp % 60;
+    
+    // Get weather dot color
+    if (weatherTemp < 0) {
+      graphics_context_set_fill_color(ctx, GColorCeleste);
+    } else if (weatherTemp < 60) {
+      graphics_context_set_fill_color(ctx, GColorMediumAquamarine);
+    } else {
+      graphics_context_set_fill_color(ctx, GColorOrange);
+    }
+    
+    // Draw dot
+    int v = DOT_DISTANCE - DOT_SPACING - 1;
+    for(int y = 0; y < 1; y++) {
+      for(int x = 0; x < 1; x++) {
+        GPoint point = (GPoint) {
+          .x = (int16_t)(sin_lookup(TRIG_MAX_ANGLE * m / 60) * (int32_t)(v) / TRIG_MAX_RATIO) + center.x,
+          .y = (int16_t)(-cos_lookup(TRIG_MAX_ANGLE * m / 60) * (int32_t)(v) / TRIG_MAX_RATIO) + center.y,
+        };
+        graphics_fill_circle(ctx, GPoint(point.x + x, point.y + y), s_dotSize);
+      }
     }
   }
 }
@@ -476,27 +573,21 @@ static void main_window_load(Window *window) {
   s_time_layer = text_layer_create(GRect(0, PBL_IF_ROUND_ELSE(61, 55), bounds.size.w, 50));  
   text_layer_set_background_color(s_time_layer, GColorClear);
   text_layer_set_text(s_time_layer, "00:00");
-  if (BOLD_TIME) {
-    text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
-  } else {
-    text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT));
-  }
   text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(s_time_layer));
   
   s_step_count_layer = text_layer_create(GRect(0, PBL_IF_ROUND_ELSE(45, 40), bounds.size.w, 40));
   text_layer_set_text_alignment(s_step_count_layer, GTextAlignmentCenter);
-  text_layer_set_font(s_step_count_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
   text_layer_set_background_color(s_step_count_layer, GColorClear);
   layer_add_child(window_layer, text_layer_get_layer(s_step_count_layer));
   
   s_dayt_layer = text_layer_create(GRect(0, PBL_IF_ROUND_ELSE(106, 100), bounds.size.w, 40));
   text_layer_set_text_alignment(s_dayt_layer, GTextAlignmentCenter);
-  text_layer_set_font(s_dayt_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
   text_layer_set_background_color(s_dayt_layer, GColorClear);
   layer_add_child(window_layer, text_layer_get_layer(s_dayt_layer));
   
   setLayerTextColors();
+  setLayerFonts();
   
   s_canvas_layer = layer_create(bounds);
   layer_set_update_proc(s_canvas_layer, draw_proc);
@@ -545,18 +636,13 @@ static void init() {
   layer_mark_dirty(s_canvas_layer);
 
   // Register with TickTimerService
-//   if (SCREENSHOT_RUN) {
-//     tick_timer_service_subscribe(SECOND_UNIT, tick_handler);  // For screenshots
-//   } else {
-    tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);  // For real
-//   }
+  tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);  // For real
   
   for (int i = 0; i < 60; i++) {
     s_dotArray[i] = 0;
   }
   
   #if defined(PBL_HEALTH)
-  // Attempt to subscribe 
   if(!health_service_events_subscribe(health_handler, NULL)) {
     APP_LOG(APP_LOG_LEVEL_ERROR, "Health not available!");
   }

@@ -1,13 +1,19 @@
 {
     "appKeys": {
+        "KEY_JSREADY": 102,
+        "KEY_TEMPERATURE": 101,
+        "PERISST_KEY_BOLD_DOTS": 8,
+        "PERSIST_KEY_BOLD_TEXT": 7,
         "PERSIST_KEY_CLR_BLUE": 5,
         "PERSIST_KEY_CLR_BW": 2,
         "PERSIST_KEY_CLR_GREEN": 4,
         "PERSIST_KEY_CLR_ORANGE": 3,
         "PERSIST_KEY_DATE": 0,
-        "PERSIST_KEY_STEPS": 1
+        "PERSIST_KEY_STEPS": 1,
+        "PERSIST_KEY_WEATHER": 6
     },
     "capabilities": [
+        "location",
         "configurable",
         "health"
     ],
