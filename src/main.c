@@ -424,6 +424,8 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     
       // Send the message!
       app_message_outbox_send();
+      
+      APP_LOG(APP_LOG_LEVEL_DEBUG, "Sent message to get weather...");
     }
   }
 }

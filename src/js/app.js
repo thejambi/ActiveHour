@@ -124,12 +124,15 @@ Pebble.addEventListener('appmessage',
   function(e) {
     console.log('AppMessage received! Received message: ' + JSON.stringify(e.payload));
 
+    var oldValue = showWeather;
     if (e.payload.PERSIST_KEY_WEATHER) {
       showWeather = e.payload.PERSIST_KEY_WEATHER;
     }
     console.log("showWeather " + showWeather);
     
-    getWeather();
+    if (showWeather && !oldValue) {
+      getWeather();
+    }
   }                     
 );
 
