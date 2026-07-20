@@ -4,7 +4,7 @@ var myAPIKey = "f50feb3d24e97418da7764008a110a77";
 var showWeather = 0;
 
 Pebble.addEventListener('showConfiguration', function(e) {
-  Pebble.openURL('http://calebhugo.com/zach/activehour/activehour.html?version=' + VERSION);
+  Pebble.openURL('https://skudpaisho.com/other/activehour.html?version=' + VERSION);
 });
 
 Pebble.addEventListener('webviewclosed', function(e) {
