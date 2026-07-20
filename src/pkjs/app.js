@@ -3,7 +3,7 @@ var VERSION = "1.0";
 var showWeather = 0;
 
 Pebble.addEventListener('showConfiguration', function(e) {
-  Pebble.openURL('https://skudpaisho.com/other/activehour.html?version=' + VERSION);
+  Pebble.openURL('https://thejambi.github.io/ActiveHour/other/activehour.html?version=' + VERSION);
 });
 
 Pebble.addEventListener('webviewclosed', function(e) {
