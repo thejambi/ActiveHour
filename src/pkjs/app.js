@@ -1,5 +1,4 @@
 var VERSION = "1.0";
-var myAPIKey = "f50feb3d24e97418da7764008a110a77";
 
 var showWeather = 0;
 
@@ -61,18 +60,24 @@ var xhrRequest = function (url, type, callback) {
 };
 
 function locationSuccess(pos) {
-  // Construct URL
-  var url = "http://api.openweathermap.org/data/2.5/weather?lat=" +
-      pos.coords.latitude + "&lon=" + pos.coords.longitude + '&appid=' + myAPIKey;
+  // Open-Meteo: free, no API key, HTTPS, and returns Fahrenheit directly.
+  var url = "https://api.open-meteo.com/v1/forecast?latitude=" +
+      pos.coords.latitude + "&longitude=" + pos.coords.longitude +
+      "&current=temperature_2m&temperature_unit=fahrenheit";
 
-  // Send request to OpenWeatherMap
-  xhrRequest(url, 'GET', 
+  // Send request to Open-Meteo
+  xhrRequest(url, 'GET',
     function(responseText) {
       // responseText contains a JSON object with weather info
       var json = JSON.parse(responseText);
 
-      // Temperature in Kelvin requires adjustment
-      var temperature = Math.round((json.main.temp - 273.15) * 1.8000) + 32;
+      if (!json || !json.current || typeof json.current.temperature_2m !== 'number') {
+        console.log("No weather data in response: " + responseText);
+        return;
+      }
+
+      // Already in Fahrenheit; just round to a whole degree.
+      var temperature = Math.round(json.current.temperature_2m);
       console.log("Temperature is " + temperature);
 
       // Assemble dictionary using our keys
@@ -89,7 +94,7 @@ function locationSuccess(pos) {
           console.log("Error sending weather info to Pebble!");
         }
       );
-    }      
+    }
   );
 }
 
@@ -136,16 +141,17 @@ Pebble.addEventListener('appmessage',
   function(e) {
     console.log('AppMessage received! Received message: ' + JSON.stringify(e.payload));
 
-    var oldValue = showWeather;
     if (e.payload.PERSIST_KEY_WEATHER) {
       showWeather = e.payload.PERSIST_KEY_WEATHER;
     }
     console.log("showWeather " + showWeather);
-    
-    if (showWeather && !oldValue) {
+
+    // Fetch on any weather signal: the initial handshake AND the watch's
+    // 30-minute refresh both land here. getWeather() guards on showWeather.
+    if (showWeather) {
       getWeather();
     }
-  }                     
+  }
 );
 
 

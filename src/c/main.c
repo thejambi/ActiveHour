@@ -480,8 +480,14 @@ static void fetchPastMinuteSteps() {
   
   // Print the number of steps for each minute
   for(uint32_t i = 0; i < num_records; i++) {
-    int numSteps = (int)minute_data[i].steps;
-    s_dotArray[((int)i + 1 + currentMinute) % 60] = calculateDotsFromMinuteSteps(numSteps);
+    int idx = ((int)i + 1 + currentMinute) % 60;
+    if (minute_data[i].is_invalid) {
+      // Watch was off / not worn this minute: .steps is undefined garbage,
+      // so show the baseline dot only — no phantom activity.
+      s_dotArray[idx] = 1;
+    } else {
+      s_dotArray[idx] = calculateDotsFromMinuteSteps((int)minute_data[i].steps);
+    }
   }
   
   for (int i = ((int)num_records + 1 + currentMinute) % 60; i < currentMinute; i++) {
@@ -523,13 +529,14 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
       // Begin dictionary
       DictionaryIterator *iter;
       app_message_outbox_begin(&iter);
-    
-      // Add a key-value pair
-      dict_write_uint8(iter, 0, 0);
-    
+
+      // Ask JS to refresh the weather. Use PERSIST_KEY_WEATHER so app.js
+      // recognizes this as a weather-refresh signal (key 0 was ignored).
+      dict_write_uint8(iter, PERSIST_KEY_WEATHER, 1);
+
       // Send the message!
       app_message_outbox_send();
-      
+
       APP_LOG(APP_LOG_LEVEL_DEBUG, "Sent message to get weather...");
     }
   }
