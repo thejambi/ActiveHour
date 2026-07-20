@@ -45,7 +45,9 @@
             "basalt",
             "chalk",
             "diorite",
-            "emery"
+            "emery",
+            "flint",
+            "gabbro"
         ],
         "uuid": "6a33b057-32a3-42e5-bd71-9e8bf9391761",
         "watchapp": {

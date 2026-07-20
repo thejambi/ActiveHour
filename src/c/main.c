@@ -2,10 +2,13 @@
 
 #define SCREENSHOT_RUN false
 
-// Ring radius scales with the display so the outer dots clip by the same
-// proportion on every platform (basalt/chalk 144x168/180x180, emery 200x228).
+// Ring radius scales with the display so the ring sits at the same relative
+// position on every platform (basalt/diorite/flint 144x168, chalk 180x180,
+// emery 200x228, gabbro 260x260 round).
 #if defined(PBL_PLATFORM_EMERY)
   #define DOT_DISTANCE       82
+#elif defined(PBL_PLATFORM_GABBRO)
+  #define DOT_DISTANCE       87
 #else
   #define DOT_DISTANCE       60
 #endif
@@ -16,14 +19,20 @@
 #define DOT_SIZE_BOLD        2
 
 // Vertical positions of the centered text layers. The fonts are the same
-// physical size on every platform, so emery reuses basalt's absolute gaps
-// (step->time 15px, time->date 45px). The time is placed at the same fraction
-// of screen height as basalt (~0.46, sitting above center to leave room for the
-// date below) rather than dead-centering the cluster. Chalk keeps its own offsets.
+// physical size on every platform, so the larger screens reuse the smaller ones'
+// absolute gaps (step->time ~15px, time->date 45px) with the time placed at the
+// same fraction of screen height (~0.46, sitting above center to leave room for
+// the date below): emery from basalt, gabbro from chalk. Gabbro must come before
+// the generic PBL_ROUND check since it's also a round display. Flint (144x168,
+// like diorite) falls through to the rectangular default.
 #if defined(PBL_PLATFORM_EMERY)
   #define TIME_Y  83
   #define STEP_Y  68
   #define DATE_Y  128
+#elif defined(PBL_PLATFORM_GABBRO)
+  #define TIME_Y  98
+  #define STEP_Y  82
+  #define DATE_Y  143
 #elif defined(PBL_ROUND)
   #define TIME_Y  61
   #define STEP_Y  45
