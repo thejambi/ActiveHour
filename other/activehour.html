@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Active Hour Configuration</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --accent: #ff7a18;
+        --accent-2: #ffb020;
+        --accent-grad: linear-gradient(135deg, #ff7a18 0%, #ffb020 100%);
+
+        /* Light theme (default) */
+        --bg: #eef1f6;
+        --bg-glow: #ffe8d2;
+        --card: #ffffff;
+        --card-border: #e6e8ee;
+        --text: #171a21;
+        --text-dim: #626879;
+        --divider: #eef0f4;
+        --track: #d7dbe3;
+        --ring-dim: #cfd4de;
+        --swatch-ring: #ffffff;
+        --shadow: 0 10px 30px rgba(20, 24, 40, 0.10);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0e0f13;
+          --bg-glow: #2a1a08;
+          --card: #17191f;
+          --card-border: #262a33;
+          --text: #f3f5f9;
+          --text-dim: #9aa2b1;
+          --divider: #23262e;
+          --track: #333844;
+          --ring-dim: #333844;
+          --swatch-ring: #17191f;
+          --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        }
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        padding: 28px 18px calc(120px + env(safe-area-inset-bottom, 0px));
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(120% 60% at 50% -10%, var(--bg-glow) 0%, transparent 55%),
+          var(--bg);
+        -webkit-font-smoothing: antialiased;
+        line-height: 1.45;
+      }
+
+      .wrap { max-width: 520px; margin: 0 auto; }
+
+      /* ---------- Header ---------- */
+      header { text-align: center; margin-bottom: 26px; }
+
+      .ring { width: 84px; height: 84px; display: block; margin: 0 auto 14px; }
+
+      h1 {
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin: 0;
+      }
+
+      .subtitle {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: var(--text-dim);
+        font-weight: 500;
+      }
+
+      /* ---------- Cards ---------- */
+      .card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        padding: 6px 18px;
+        margin-bottom: 18px;
+      }
+
+      .card-title {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+        padding: 16px 0 8px;
+        margin: 0;
+      }
+
+      /* ---------- Setting rows / toggles ---------- */
+      .setting {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 0;
+        border-top: 1px solid var(--divider);
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .setting:first-of-type { border-top: none; }
+
+      .setting-text { flex: 1; min-width: 0; }
+      .setting-text .label { font-size: 15px; font-weight: 600; }
+      .setting-text .hint { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+
+      /* Hide native control, keep it reachable by id/JS */
+      .switch-input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+
+      .switch {
+        flex: none;
+        position: relative;
+        width: 50px;
+        height: 30px;
+        border-radius: 999px;
+        background: var(--track);
+        transition: background 0.22s ease;
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28);
+        transition: transform 0.22s cubic-bezier(0.3, 1.2, 0.5, 1);
+      }
+      .switch-input:checked ~ .switch { background: var(--accent-grad); }
+      .switch-input:checked ~ .switch::after { transform: translateX(20px); }
+      .switch-input:focus-visible ~ .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      /* ---------- Color swatches ---------- */
+      .swatch-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        padding: 16px 0 18px;
+      }
+      .swatch-option {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 7px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .swatch-option input { position: absolute; opacity: 0; width: 0; height: 0; }
+      .swatch {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: var(--c);
+        box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.25);
+        transition: transform 0.15s ease;
+      }
+      .swatch-option input:checked ~ .swatch {
+        box-shadow:
+          0 0 0 3px var(--swatch-ring),
+          0 0 0 6px var(--accent);
+        transform: scale(1.04);
+      }
+      .swatch-name { font-size: 12px; color: var(--text-dim); font-weight: 600; }
+      .swatch-option input:checked ~ .swatch-name { color: var(--text); }
+      .swatch-option input:focus-visible ~ .swatch { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+      /* ---------- Custom accent picker ---------- */
+      .color-input {
+        flex: none;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        background: none;
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      .color-input::-webkit-color-swatch-wrapper { padding: 0; }
+      .color-input::-webkit-color-swatch {
+        border: none;
+        border-radius: 50%;
+        box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.25);
+      }
+      .color-input::-moz-color-swatch {
+        border: none;
+        border-radius: 50%;
+        box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.25);
+      }
+      /* Selection ring when custom is the chosen scheme */
+      #check_clr_custom:checked ~ .color-input {
+        box-shadow: 0 0 0 3px var(--swatch-ring), 0 0 0 6px var(--accent);
+      }
+
+      /* ---------- Footer / notes ---------- */
+      .note {
+        font-size: 12.5px;
+        color: var(--text-dim);
+        line-height: 1.55;
+        margin: 14px 2px;
+      }
+      .note a { color: var(--accent); text-decoration: none; font-weight: 600; }
+      .note a:hover { text-decoration: underline; }
+
+      .heart { color: var(--accent); }
+
+      /* ---------- Sticky save bar ---------- */
+      .savebar {
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        padding: 14px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+        background: linear-gradient(to top, var(--bg) 55%, transparent);
+        display: flex;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 10;
+      }
+      #save_button {
+        pointer-events: auto;
+        width: 100%;
+        max-width: 484px;
+        border: none;
+        border-radius: 15px;
+        padding: 16px;
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        color: #fff;
+        background: var(--accent-grad);
+        box-shadow: 0 8px 22px rgba(255, 122, 24, 0.35);
+        cursor: pointer;
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+        font-family: inherit;
+      }
+      #save_button:active { transform: translateY(1px) scale(0.995); box-shadow: 0 4px 14px rgba(255, 122, 24, 0.3); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+          <defs>
+            <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#ff7a18" />
+              <stop offset="1" stop-color="#ffb020" />
+            </linearGradient>
+          </defs>
+          <!-- dim dotted ring (like the inactive minute dots) -->
+          <circle cx="60" cy="60" r="50" fill="none" stroke="var(--ring-dim)"
+                  stroke-width="7" stroke-linecap="round" stroke-dasharray="0.5 8.4" />
+          <!-- accent progress arc (active portion of the hour) -->
+          <circle cx="60" cy="60" r="50" fill="none" stroke="url(#ringGrad)"
+                  stroke-width="7" stroke-linecap="round"
+                  stroke-dasharray="118 196" transform="rotate(-90 60 60)" />
+        </svg>
+        <h1>Active Hour</h1>
+        <p class="subtitle">Watchface Settings</p>
+      </header>
+
+      <!-- ============ DISPLAY ============ -->
+      <section class="card">
+        <p class="card-title">Display</p>
+
+        <label class="setting">
+          <span class="setting-text"><span class="label">Show date</span></span>
+          <input class="switch-input" id="check_date" type="checkbox" />
+          <span class="switch"></span>
+        </label>
+
+        <label class="setting">
+          <span class="setting-text">
+            <span class="label">Show step count</span>
+            <span class="hint">Falls back to sleep time overnight</span>
+          </span>
+          <input class="switch-input" id="check_steps" type="checkbox" />
+          <span class="switch"></span>
+        </label>
+
+        <label class="setting">
+          <span class="setting-text">
+            <span class="label">Show weather dot</span>
+            <span class="hint">Uses location — see note below</span>
+          </span>
+          <input class="switch-input" id="check_weather" type="checkbox" />
+          <span class="switch"></span>
+        </label>
+      </section>
+
+      <!-- ============ STYLE ============ -->
+      <section class="card">
+        <p class="card-title">Style</p>
+
+        <label class="setting">
+          <span class="setting-text"><span class="label">Bold text</span></span>
+          <input class="switch-input" id="check_boldText" type="checkbox" />
+          <span class="switch"></span>
+        </label>
+
+        <label class="setting">
+          <span class="setting-text"><span class="label">Bold dots</span></span>
+          <input class="switch-input" id="check_boldDots" type="checkbox" />
+          <span class="switch"></span>
+        </label>
+
+        <label class="setting">
+          <span class="setting-text">
+            <span class="label">Hour marks</span>
+            <span class="hint">Shown when using bold dots</span>
+          </span>
+          <input class="switch-input" id="check_minmarks" type="checkbox" />
+          <span class="switch"></span>
+        </label>
+      </section>
+
+      <!-- ============ COLOR ============ -->
+      <section class="card">
+        <p class="card-title">Color Scheme</p>
+
+        <div class="swatch-grid">
+          <label class="swatch-option">
+            <input id="check_clr_bw" type="radio" name="color" />
+            <span class="swatch" style="--c: linear-gradient(135deg, #f7f7f7 50%, #1c1c1c 50%);"></span>
+            <span class="swatch-name">B &amp; W</span>
+          </label>
+          <label class="swatch-option">
+            <input id="check_clr_orange" type="radio" name="color" />
+            <span class="swatch" style="--c: #ff6a00;"></span>
+            <span class="swatch-name">Orange</span>
+          </label>
+          <label class="swatch-option">
+            <input id="check_clr_green" type="radio" name="color" />
+            <span class="swatch" style="--c: #22c55e;"></span>
+            <span class="swatch-name">Green</span>
+          </label>
+          <label class="swatch-option">
+            <input id="check_clr_blue" type="radio" name="color" />
+            <span class="swatch" style="--c: #22c3ee;"></span>
+            <span class="swatch-name">Blue</span>
+          </label>
+          <label class="swatch-option">
+            <input id="check_clr_purple" type="radio" name="color" />
+            <span class="swatch" style="--c: #a855f7;"></span>
+            <span class="swatch-name">Purple</span>
+          </label>
+          <label class="swatch-option">
+            <input id="check_clr_red" type="radio" name="color" />
+            <span class="swatch" style="--c: #ef4444;"></span>
+            <span class="swatch-name">Red</span>
+          </label>
+          <label class="swatch-option">
+            <input id="check_clr_teal" type="radio" name="color" />
+            <span class="swatch" style="--c: #14b8a6;"></span>
+            <span class="swatch-name">Teal</span>
+          </label>
+        </div>
+
+        <label class="setting">
+          <input class="switch-input" id="check_clr_custom" type="radio" name="color" />
+          <span class="setting-text">
+            <span class="label">Custom accent</span>
+            <span class="hint">Pick any color — dim, step &amp; date shades are derived automatically</span>
+          </span>
+          <input class="color-input" id="custom_color" type="color" value="#ff6a00" />
+        </label>
+
+        <label class="setting">
+          <span class="setting-text"><span class="label">Inverted colors</span></span>
+          <input class="switch-input" id="check_clr_inverted" type="checkbox" name="color" />
+          <span class="switch"></span>
+        </label>
+
+        <label class="setting">
+          <span class="setting-text">
+            <span class="label">Daily color change</span>
+            <span class="hint">Rotate the scheme each day</span>
+          </span>
+          <input class="switch-input" id="check_daily" type="checkbox" />
+          <span class="switch"></span>
+        </label>
+      </section>
+
+      <!-- ============ BEHAVIOR ============ -->
+      <section class="card">
+        <p class="card-title">Behavior</p>
+
+        <label class="setting">
+          <span class="setting-text">
+            <span class="label">Bluetooth vibration</span>
+            <span class="hint">Buzz on connect / disconnect — restart watchface to apply</span>
+          </span>
+          <input class="switch-input" id="check_bt" type="checkbox" />
+          <span class="switch"></span>
+        </label>
+      </section>
+
+      <p class="note">
+        Enjoying Active Hour? Please consider
+        <a href="https://buymeacoffee.com/zburnham">buying me a tea to support my work</a>.
+        Want a specific color scheme added? Donate and
+        <a href="mailto:zburnhamdev@gmail.com?Subject=Pebble%20Watchface%20Request">send me an email</a>.
+        Thank you! <span class="heart">&#9829;</span>
+      </p>
+
+      <p class="note">
+        <strong>About the weather dot:</strong> this option uses your location — but it is never
+        accessed while the option is turned off. It shows a dot at the minute mark matching the
+        temperature (Fahrenheit). For example, 80&deg; shows an orange dot at the 20-minute mark;
+        30&deg; shows a dot at the bottom of the face. Below 0&deg; or above 60&deg; the dot turns
+        a noticeable color.
+      </p>
+    </div>
+
+    <div class="savebar">
+      <button id="save_button">Save Settings</button>
+    </div>
+
+    <script>
+      function persistWrite(key, value) {
+        localStorage.setItem(key, value);
+      }
+
+      var persistRead = function(key, defaultValue) {
+        if(localStorage.getItem(key) === null) {
+          return defaultValue;
+        } else {
+          return localStorage.getItem(key);
+        }
+      };
+
+      function firstTimeSetup() {
+        if(!persistRead('first-time', false)) {
+          persistWrite('first-time', true);
+          console.log('This is the first launch!');
+
+          // Align with watchapp defaults
+          persistWrite('date', 'true');
+          persistWrite('steps', 'true');
+          persistWrite('boldText', 'false');
+          persistWrite('boldDots', 'false');
+          persistWrite('minmarks', 'false');
+          persistWrite('weather', 'false');
+          persistWrite('clr_bw', 'true');
+          persistWrite('clr_orange', 'false');
+          persistWrite('clr_green', 'false');
+          persistWrite('clr_blue', 'false');
+          persistWrite('clr_purple', 'false');
+          persistWrite('clr_red', 'false');
+          persistWrite('clr_teal', 'false');
+          persistWrite('clr_custom', 'false');
+          persistWrite('clr_custom_value', '#ff6a00');
+          persistWrite('daily', 'false');
+          persistWrite('clr_inverted', 'false');
+          persistWrite('bt', 'false');
+        }
+      }
+
+      function loadConfig() {
+        document.getElementById('check_date').checked = persistRead('date', 'false') === 'true';
+        document.getElementById('check_steps').checked = persistRead('steps', 'false') === 'true';
+        document.getElementById('check_boldText').checked = persistRead('boldText', 'false') === 'true';
+        document.getElementById('check_boldDots').checked = persistRead('boldDots', 'false') === 'true';
+        document.getElementById('check_minmarks').checked = persistRead('minmarks', 'false') === 'true';
+        document.getElementById('check_weather').checked = persistRead('weather', 'false') === 'true';
+        document.getElementById('check_clr_bw').checked = persistRead('clr_bw', 'false') === 'true';
+        document.getElementById('check_clr_orange').checked = persistRead('clr_orange', 'false') === 'true';
+        document.getElementById('check_clr_green').checked = persistRead('clr_green', 'false') === 'true';
+        document.getElementById('check_clr_blue').checked = persistRead('clr_blue', 'false') === 'true';
+        document.getElementById('check_clr_purple').checked = persistRead('clr_purple', 'false') === 'true';
+        document.getElementById('check_clr_red').checked = persistRead('clr_red', 'false') === 'true';
+        document.getElementById('check_clr_teal').checked = persistRead('clr_teal', 'false') === 'true';
+        document.getElementById('check_clr_custom').checked = persistRead('clr_custom', 'false') === 'true';
+        document.getElementById('custom_color').value = persistRead('clr_custom_value', '#ff6a00');
+        document.getElementById('check_daily').checked = persistRead('daily', 'false') === 'true';
+        document.getElementById('check_clr_inverted').checked = persistRead('clr_inverted', 'false') === 'true';
+        document.getElementById('check_bt').checked = persistRead('bt', 'false') === 'true';
+      }
+
+      function ajax(url, type, callback) {
+        var xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+          callback(this.responseText);
+        };
+        xhr.open(type, url);
+        xhr.send();
+      };
+
+      function getQueryParam(query, defaultValue) {
+        var query = location.search.substring(1);
+        var vars = query.split('&');
+        for (var i = 0; i < vars.length; i++) {
+          var pair = vars[i].split('=');
+          // If the query query parameter is found, decode it to use and return it for use
+          if (pair[0] === query) {
+            return decodeURIComponent(pair[1]);
+          }
+        }
+        return defaultValue || false;
+      }
+
+      var submitButton = document.getElementById('save_button');
+      submitButton.addEventListener('click',
+        function() {
+          var options = {
+            'date': document.getElementById('check_date').checked ? 'true' : 'false',
+            'steps': document.getElementById('check_steps').checked ? 'true' : 'false',
+            'boldText': document.getElementById('check_boldText').checked ? 'true' : 'false',
+            'boldDots': document.getElementById('check_boldDots').checked ? 'true' : 'false',
+            'minmarks': document.getElementById('check_minmarks').checked ? 'true' : 'false',
+            'weather': document.getElementById('check_weather').checked ? 'true' : 'false',
+            'clr_bw': document.getElementById('check_clr_bw').checked ? 'true' : 'false',
+            'clr_orange': document.getElementById('check_clr_orange').checked ? 'true' : 'false',
+            'clr_green': document.getElementById('check_clr_green').checked ? 'true' : 'false',
+            'clr_blue': document.getElementById('check_clr_blue').checked ? 'true' : 'false',
+            'clr_purple': document.getElementById('check_clr_purple').checked ? 'true' : 'false',
+            'clr_red': document.getElementById('check_clr_red').checked ? 'true' : 'false',
+            'clr_teal': document.getElementById('check_clr_teal').checked ? 'true' : 'false',
+            'clr_custom': document.getElementById('check_clr_custom').checked ? 'true' : 'false',
+            'clr_custom_value': document.getElementById('custom_color').value,
+            'daily': document.getElementById('check_daily').checked ? 'true' : 'false',
+            'clr_inverted': document.getElementById('check_clr_inverted').checked ? 'true' : 'false',
+            'bt': document.getElementById('check_bt').checked ? 'true' : 'false',
+          };
+
+          persistWrite('date', options.date);
+          persistWrite('steps', options.steps);
+          persistWrite('boldText', options.boldText);
+          persistWrite('boldDots', options.boldDots);
+          persistWrite('minmarks', options.minmarks);
+          persistWrite('weather', options.weather);
+          persistWrite('clr_bw', options.clr_bw);
+          persistWrite('clr_orange', options.clr_orange);
+          persistWrite('clr_green', options.clr_green);
+          persistWrite('clr_blue', options.clr_blue);
+          persistWrite('clr_purple', options.clr_purple);
+          persistWrite('clr_red', options.clr_red);
+          persistWrite('clr_teal', options.clr_teal);
+          persistWrite('clr_custom', options.clr_custom);
+          persistWrite('clr_custom_value', options.clr_custom_value);
+          persistWrite('daily', options.daily);
+          persistWrite('clr_inverted', options.clr_inverted);
+          persistWrite('bt', options.bt);
+
+          // Set the return URL depending on the runtime environment
+          var return_to = getQueryParam('return_to', 'pebblejs://close#');
+          document.location = return_to + encodeURIComponent(JSON.stringify(options));
+        },
+      false);
+
+      // Touching the color picker means the user wants the custom accent, so
+      // select it (which also deselects any preset in the same radio group).
+      var customColorInput = document.getElementById('custom_color');
+      function selectCustomAccent() {
+        document.getElementById('check_clr_custom').checked = true;
+      }
+      customColorInput.addEventListener('input', selectCustomAccent);
+      customColorInput.addEventListener('change', selectCustomAccent);
+      customColorInput.addEventListener('click', selectCustomAccent);
+
+
+      firstTimeSetup();
+      loadConfig();
+    </script>
+  </body>
+</html>
