@@ -28,10 +28,12 @@
     "shortName": "ActiveHour",
     "targetPlatforms": [
         "basalt",
-        "chalk"
+        "chalk",
+        "diorite",
+        "emery"
     ],
     "uuid": "6ca82f56-3eb0-4b73-be83-0659d6989ead",
-    "versionLabel": "1.7",
+    "versionLabel": "1.8",
     "watchapp": {
         "watchface": true
     }

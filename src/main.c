@@ -2,12 +2,35 @@
 
 #define SCREENSHOT_RUN false
 
-#define DOT_DISTANCE         60
+// Ring radius scales with the display so the outer dots clip by the same
+// proportion on every platform (basalt/chalk 144x168/180x180, emery 200x228).
+#if defined(PBL_PLATFORM_EMERY)
+  #define DOT_DISTANCE       82
+#else
+  #define DOT_DISTANCE       60
+#endif
 #define DOT_SPACING          6
 #define EXTRA_DOT_THRESHOLD  11
 #define DOT_STEP_COUNT       30
 #define DOT_SIZE_DEFAULT     1
 #define DOT_SIZE_BOLD        2
+
+// Vertical positions of the centered text layers. Emery is a taller screen
+// (228px vs 168px), so the basalt values are scaled up to keep them centered
+// on the ring; chalk (round) keeps its own tuned offsets.
+#if defined(PBL_PLATFORM_EMERY)
+  #define TIME_Y  75
+  #define STEP_Y  54
+  #define DATE_Y  136
+#elif defined(PBL_ROUND)
+  #define TIME_Y  61
+  #define STEP_Y  45
+  #define DATE_Y  106
+#else
+  #define TIME_Y  55
+  #define STEP_Y  40
+  #define DATE_Y  100
+#endif
 
 // Persist
 #define PERSIST_DEFAULTS_SET 228483
@@ -572,18 +595,18 @@ static void main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
 
-  s_time_layer = text_layer_create(GRect(0, PBL_IF_ROUND_ELSE(61, 55), bounds.size.w, 50));  
+  s_time_layer = text_layer_create(GRect(0, TIME_Y, bounds.size.w, 50));
   text_layer_set_background_color(s_time_layer, GColorClear);
   text_layer_set_text(s_time_layer, "00:00");
   text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(s_time_layer));
-  
-  s_step_count_layer = text_layer_create(GRect(0, PBL_IF_ROUND_ELSE(45, 40), bounds.size.w, 40));
+
+  s_step_count_layer = text_layer_create(GRect(0, STEP_Y, bounds.size.w, 40));
   text_layer_set_text_alignment(s_step_count_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_step_count_layer, GColorClear);
   layer_add_child(window_layer, text_layer_get_layer(s_step_count_layer));
-  
-  s_dayt_layer = text_layer_create(GRect(0, PBL_IF_ROUND_ELSE(106, 100), bounds.size.w, 40));
+
+  s_dayt_layer = text_layer_create(GRect(0, DATE_Y, bounds.size.w, 40));
   text_layer_set_text_alignment(s_dayt_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_dayt_layer, GColorClear);
   layer_add_child(window_layer, text_layer_get_layer(s_dayt_layer));
