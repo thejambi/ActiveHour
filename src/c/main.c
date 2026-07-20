@@ -15,13 +15,15 @@
 #define DOT_SIZE_DEFAULT     1
 #define DOT_SIZE_BOLD        2
 
-// Vertical positions of the centered text layers. Emery is a taller screen
-// (228px vs 168px), so the basalt values are scaled up to keep them centered
-// on the ring; chalk (round) keeps its own tuned offsets.
+// Vertical positions of the centered text layers. The fonts are the same
+// physical size on every platform, so emery reuses basalt's absolute gaps
+// (step->time 15px, time->date 45px) re-centered on its taller 228px screen
+// (center ~y114) rather than scaling the offsets up. Chalk keeps its own tuned
+// offsets.
 #if defined(PBL_PLATFORM_EMERY)
-  #define TIME_Y  75
-  #define STEP_Y  54
-  #define DATE_Y  136
+  #define TIME_Y  89
+  #define STEP_Y  74
+  #define DATE_Y  134
 #elif defined(PBL_ROUND)
   #define TIME_Y  61
   #define STEP_Y  45
