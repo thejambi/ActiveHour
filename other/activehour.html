@@ -427,35 +427,6 @@
             <input class="color-input" id="custom_date" type="color" value="#aaaaaa" />
           </label>
         </div>
-
-        <label class="setting">
-          <span class="setting-text"><span class="label">Inverted colors</span></span>
-          <input class="switch-input" id="check_clr_inverted" type="checkbox" name="color" />
-          <span class="switch"></span>
-        </label>
-
-        <label class="setting">
-          <span class="setting-text">
-            <span class="label">Daily color change</span>
-            <span class="hint">Rotate the scheme each day</span>
-          </span>
-          <input class="switch-input" id="check_daily" type="checkbox" />
-          <span class="switch"></span>
-        </label>
-      </section>
-
-      <!-- ============ BEHAVIOR ============ -->
-      <section class="card">
-        <p class="card-title">Behavior</p>
-
-        <label class="setting">
-          <span class="setting-text">
-            <span class="label">Bluetooth vibration</span>
-            <span class="hint">Buzz on connect / disconnect — restart watchface to apply</span>
-          </span>
-          <input class="switch-input" id="check_bt" type="checkbox" />
-          <span class="switch"></span>
-        </label>
       </section>
 
       <p class="note">
@@ -519,9 +490,6 @@
           persistWrite('custom_dot_dim', '#555555');
           persistWrite('custom_steps', '#aaaaaa');
           persistWrite('custom_date', '#aaaaaa');
-          persistWrite('daily', 'false');
-          persistWrite('clr_inverted', 'false');
-          persistWrite('bt', 'false');
         }
       }
 
@@ -548,9 +516,6 @@
         document.getElementById('custom_steps').value = persistRead('custom_steps', '#aaaaaa');
         document.getElementById('custom_date').value = persistRead('custom_date', '#aaaaaa');
         updateCustomThemeVisibility();
-        document.getElementById('check_daily').checked = persistRead('daily', 'false') === 'true';
-        document.getElementById('check_clr_inverted').checked = persistRead('clr_inverted', 'false') === 'true';
-        document.getElementById('check_bt').checked = persistRead('bt', 'false') === 'true';
       }
 
       function ajax(url, type, callback) {
@@ -600,9 +565,6 @@
             'custom_dot_dim': document.getElementById('custom_dot_dim').value,
             'custom_steps': document.getElementById('custom_steps').value,
             'custom_date': document.getElementById('custom_date').value,
-            'daily': document.getElementById('check_daily').checked ? 'true' : 'false',
-            'clr_inverted': document.getElementById('check_clr_inverted').checked ? 'true' : 'false',
-            'bt': document.getElementById('check_bt').checked ? 'true' : 'false',
           };
 
           persistWrite('date', options.date);
@@ -626,9 +588,6 @@
           persistWrite('custom_steps', options.custom_steps);
           persistWrite('custom_date', options.custom_date);
           persistWrite('fitdots', options.fitdots);
-          persistWrite('daily', options.daily);
-          persistWrite('clr_inverted', options.clr_inverted);
-          persistWrite('bt', options.bt);
 
           // Set the return URL depending on the runtime environment
           var return_to = getQueryParam('return_to', 'pebblejs://close#');
