@@ -47,10 +47,10 @@
             "diorite",
             "emery"
         ],
-        "uuid": "6ca82f56-3eb0-4b73-be83-0659d6989ead",
+        "uuid": "6a33b057-32a3-42e5-bd71-9e8bf9391761",
         "watchapp": {
             "watchface": true
         }
     },
-    "version": "1.8.0"
+    "version": "2.0.3"
 }
