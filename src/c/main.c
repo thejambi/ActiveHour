@@ -625,13 +625,10 @@ static void draw_proc(Layer *layer, GContext *ctx) {
     graphics_context_set_fill_color(ctx, dotColor);
 
     // Hour marks: with bold dots on, the base dot at each clock-hour position
-    // (every 5 minutes = the 12 ticks) is drawn hollow instead of filled.
+    // (every 5 minutes = the 12 ticks) is drawn a size smaller than the bold dots.
     bool hourMark = config_get(PERSIST_KEY_BOLD_DOTS)
                  && config_get(PERSIST_KEY_MINMARKS)
                  && (m % 5 == 0);
-    if (hourMark) {
-      graphics_context_set_stroke_color(ctx, dotColor);
-    }
 
     int v = baseDist;
 
@@ -654,11 +651,8 @@ static void draw_proc(Layer *layer, GContext *ctx) {
             .x = (int16_t)(sin_lookup(TRIG_MAX_ANGLE * m / 60) * (int32_t)(v) / TRIG_MAX_RATIO) + center.x,
             .y = (int16_t)(-cos_lookup(TRIG_MAX_ANGLE * m / 60) * (int32_t)(v) / TRIG_MAX_RATIO) + center.y,
           };
-          if (hourMark && i == 0) {
-            graphics_draw_circle(ctx, GPoint(point.x + x, point.y + y), s_dotSize);
-          } else {
-            graphics_fill_circle(ctx, GPoint(point.x + x, point.y + y), s_dotSize);
-          }
+          int radius = (hourMark && i == 0) ? s_dotSize - 1 : s_dotSize;
+          graphics_fill_circle(ctx, GPoint(point.x + x, point.y + y), radius);
         }
       }
       
