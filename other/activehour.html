@@ -177,11 +177,11 @@
       .swatch-option input:checked ~ .swatch-name { color: var(--text); }
       .swatch-option input:focus-visible ~ .swatch { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-      /* ---------- Custom accent picker ---------- */
+      /* ---------- Custom theme section ---------- */
       .color-input {
         flex: none;
-        width: 44px;
-        height: 44px;
+        width: 40px;
+        height: 40px;
         padding: 0;
         border: none;
         border-radius: 50%;
@@ -201,10 +201,28 @@
         border-radius: 50%;
         box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.25);
       }
-      /* Selection ring when custom is the chosen scheme */
-      #check_clr_custom:checked ~ .color-input {
-        box-shadow: 0 0 0 3px var(--swatch-ring), 0 0 0 6px var(--accent);
+
+      /* Expanding sub-section shown only when "Custom" theme is selected */
+      .custom-theme { display: none; margin-top: 4px; }
+      .custom-theme.show { display: block; }
+      .custom-theme-title {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        margin: 10px 0 2px;
       }
+      .custom-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 11px 0;
+        border-top: 1px solid var(--divider);
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .custom-row-label { flex: 1; font-size: 15px; font-weight: 600; }
 
       /* ---------- Footer / notes ---------- */
       .note {
@@ -324,6 +342,15 @@
           <input class="switch-input" id="check_minmarks" type="checkbox" />
           <span class="switch"></span>
         </label>
+
+        <label class="setting">
+          <span class="setting-text">
+            <span class="label">Fit dots on screen</span>
+            <span class="hint">Pebble Time 2 only — pulls the ring in so edge dots aren't clipped</span>
+          </span>
+          <input class="switch-input" id="check_fitdots" type="checkbox" />
+          <span class="switch"></span>
+        </label>
       </section>
 
       <!-- ============ COLOR ============ -->
@@ -366,16 +393,40 @@
             <span class="swatch" style="--c: #14b8a6;"></span>
             <span class="swatch-name">Teal</span>
           </label>
+          <label class="swatch-option">
+            <input id="check_clr_custom" type="radio" name="color" />
+            <span class="swatch" style="--c: conic-gradient(from 90deg, #ef4444, #ff9d00, #22c55e, #22c3ee, #a855f7, #ef4444);"></span>
+            <span class="swatch-name">Custom</span>
+          </label>
         </div>
 
-        <label class="setting">
-          <input class="switch-input" id="check_clr_custom" type="radio" name="color" />
-          <span class="setting-text">
-            <span class="label">Custom accent</span>
-            <span class="hint">Pick any color — dim, step &amp; date shades are derived automatically</span>
-          </span>
-          <input class="color-input" id="custom_color" type="color" value="#ff6a00" />
-        </label>
+        <div class="custom-theme" id="custom_theme_section">
+          <p class="custom-theme-title">Custom theme colors</p>
+          <label class="custom-row">
+            <span class="custom-row-label">Background</span>
+            <input class="color-input" id="custom_bg" type="color" value="#000000" />
+          </label>
+          <label class="custom-row">
+            <span class="custom-row-label">Time</span>
+            <input class="color-input" id="custom_time" type="color" value="#ffffff" />
+          </label>
+          <label class="custom-row">
+            <span class="custom-row-label">Active dots</span>
+            <input class="color-input" id="custom_dot_active" type="color" value="#ff6a00" />
+          </label>
+          <label class="custom-row">
+            <span class="custom-row-label">Dim dots</span>
+            <input class="color-input" id="custom_dot_dim" type="color" value="#555555" />
+          </label>
+          <label class="custom-row">
+            <span class="custom-row-label">Step count</span>
+            <input class="color-input" id="custom_steps" type="color" value="#aaaaaa" />
+          </label>
+          <label class="custom-row">
+            <span class="custom-row-label">Date</span>
+            <input class="color-input" id="custom_date" type="color" value="#aaaaaa" />
+          </label>
+        </div>
 
         <label class="setting">
           <span class="setting-text"><span class="label">Inverted colors</span></span>
@@ -452,6 +503,7 @@
           persistWrite('boldText', 'false');
           persistWrite('boldDots', 'false');
           persistWrite('minmarks', 'false');
+          persistWrite('fitdots', 'false');
           persistWrite('weather', 'false');
           persistWrite('clr_bw', 'true');
           persistWrite('clr_orange', 'false');
@@ -461,7 +513,12 @@
           persistWrite('clr_red', 'false');
           persistWrite('clr_teal', 'false');
           persistWrite('clr_custom', 'false');
-          persistWrite('clr_custom_value', '#ff6a00');
+          persistWrite('custom_bg', '#000000');
+          persistWrite('custom_time', '#ffffff');
+          persistWrite('custom_dot_active', '#ff6a00');
+          persistWrite('custom_dot_dim', '#555555');
+          persistWrite('custom_steps', '#aaaaaa');
+          persistWrite('custom_date', '#aaaaaa');
           persistWrite('daily', 'false');
           persistWrite('clr_inverted', 'false');
           persistWrite('bt', 'false');
@@ -474,6 +531,7 @@
         document.getElementById('check_boldText').checked = persistRead('boldText', 'false') === 'true';
         document.getElementById('check_boldDots').checked = persistRead('boldDots', 'false') === 'true';
         document.getElementById('check_minmarks').checked = persistRead('minmarks', 'false') === 'true';
+        document.getElementById('check_fitdots').checked = persistRead('fitdots', 'false') === 'true';
         document.getElementById('check_weather').checked = persistRead('weather', 'false') === 'true';
         document.getElementById('check_clr_bw').checked = persistRead('clr_bw', 'false') === 'true';
         document.getElementById('check_clr_orange').checked = persistRead('clr_orange', 'false') === 'true';
@@ -483,7 +541,13 @@
         document.getElementById('check_clr_red').checked = persistRead('clr_red', 'false') === 'true';
         document.getElementById('check_clr_teal').checked = persistRead('clr_teal', 'false') === 'true';
         document.getElementById('check_clr_custom').checked = persistRead('clr_custom', 'false') === 'true';
-        document.getElementById('custom_color').value = persistRead('clr_custom_value', '#ff6a00');
+        document.getElementById('custom_bg').value = persistRead('custom_bg', '#000000');
+        document.getElementById('custom_time').value = persistRead('custom_time', '#ffffff');
+        document.getElementById('custom_dot_active').value = persistRead('custom_dot_active', '#ff6a00');
+        document.getElementById('custom_dot_dim').value = persistRead('custom_dot_dim', '#555555');
+        document.getElementById('custom_steps').value = persistRead('custom_steps', '#aaaaaa');
+        document.getElementById('custom_date').value = persistRead('custom_date', '#aaaaaa');
+        updateCustomThemeVisibility();
         document.getElementById('check_daily').checked = persistRead('daily', 'false') === 'true';
         document.getElementById('check_clr_inverted').checked = persistRead('clr_inverted', 'false') === 'true';
         document.getElementById('check_bt').checked = persistRead('bt', 'false') === 'true';
@@ -520,6 +584,7 @@
             'boldText': document.getElementById('check_boldText').checked ? 'true' : 'false',
             'boldDots': document.getElementById('check_boldDots').checked ? 'true' : 'false',
             'minmarks': document.getElementById('check_minmarks').checked ? 'true' : 'false',
+            'fitdots': document.getElementById('check_fitdots').checked ? 'true' : 'false',
             'weather': document.getElementById('check_weather').checked ? 'true' : 'false',
             'clr_bw': document.getElementById('check_clr_bw').checked ? 'true' : 'false',
             'clr_orange': document.getElementById('check_clr_orange').checked ? 'true' : 'false',
@@ -529,7 +594,12 @@
             'clr_red': document.getElementById('check_clr_red').checked ? 'true' : 'false',
             'clr_teal': document.getElementById('check_clr_teal').checked ? 'true' : 'false',
             'clr_custom': document.getElementById('check_clr_custom').checked ? 'true' : 'false',
-            'clr_custom_value': document.getElementById('custom_color').value,
+            'custom_bg': document.getElementById('custom_bg').value,
+            'custom_time': document.getElementById('custom_time').value,
+            'custom_dot_active': document.getElementById('custom_dot_active').value,
+            'custom_dot_dim': document.getElementById('custom_dot_dim').value,
+            'custom_steps': document.getElementById('custom_steps').value,
+            'custom_date': document.getElementById('custom_date').value,
             'daily': document.getElementById('check_daily').checked ? 'true' : 'false',
             'clr_inverted': document.getElementById('check_clr_inverted').checked ? 'true' : 'false',
             'bt': document.getElementById('check_bt').checked ? 'true' : 'false',
@@ -549,7 +619,13 @@
           persistWrite('clr_red', options.clr_red);
           persistWrite('clr_teal', options.clr_teal);
           persistWrite('clr_custom', options.clr_custom);
-          persistWrite('clr_custom_value', options.clr_custom_value);
+          persistWrite('custom_bg', options.custom_bg);
+          persistWrite('custom_time', options.custom_time);
+          persistWrite('custom_dot_active', options.custom_dot_active);
+          persistWrite('custom_dot_dim', options.custom_dot_dim);
+          persistWrite('custom_steps', options.custom_steps);
+          persistWrite('custom_date', options.custom_date);
+          persistWrite('fitdots', options.fitdots);
           persistWrite('daily', options.daily);
           persistWrite('clr_inverted', options.clr_inverted);
           persistWrite('bt', options.bt);
@@ -560,15 +636,30 @@
         },
       false);
 
-      // Touching the color picker means the user wants the custom accent, so
-      // select it (which also deselects any preset in the same radio group).
-      var customColorInput = document.getElementById('custom_color');
-      function selectCustomAccent() {
-        document.getElementById('check_clr_custom').checked = true;
+      // Show the per-element pickers only when the Custom theme is selected.
+      function updateCustomThemeVisibility() {
+        var on = document.getElementById('check_clr_custom').checked;
+        document.getElementById('custom_theme_section').classList.toggle('show', on);
       }
-      customColorInput.addEventListener('input', selectCustomAccent);
-      customColorInput.addEventListener('change', selectCustomAccent);
-      customColorInput.addEventListener('click', selectCustomAccent);
+
+      // Selecting any color option (preset or custom) updates the section.
+      var colorRadios = document.querySelectorAll('input[name="color"]');
+      for (var i = 0; i < colorRadios.length; i++) {
+        colorRadios[i].addEventListener('change', updateCustomThemeVisibility);
+      }
+
+      // Touching any custom picker implies the Custom theme, so select it.
+      var customPickerIds = ['custom_bg', 'custom_time', 'custom_dot_active',
+                             'custom_dot_dim', 'custom_steps', 'custom_date'];
+      function selectCustomTheme() {
+        document.getElementById('check_clr_custom').checked = true;
+        updateCustomThemeVisibility();
+      }
+      customPickerIds.forEach(function(id) {
+        var el = document.getElementById(id);
+        el.addEventListener('input', selectCustomTheme);
+        el.addEventListener('change', selectCustomTheme);
+      });
 
 
       firstTimeSetup();

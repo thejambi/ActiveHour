@@ -47,13 +47,26 @@
 #define PERSIST_KEY_CLR_PURPLE  9
 #define PERSIST_KEY_CLR_RED     10
 #define PERSIST_KEY_CLR_TEAL    11
-#define PERSIST_KEY_CLR_CUSTOM  12
-// Not a bool: the packed 0xRRGGBB accent picked in the custom color picker.
-#define PERSIST_KEY_CLR_CUSTOM_VALUE 13
-// Key 14 (BT) retired. Hour marks live at 15.
+// Keys 12 (DAILY), 13 (INVERTED), 14 (BT) retired — left unused.
 #define PERSIST_KEY_MINMARKS    15
-#define NUM_SETTINGS            16
-#define CLR_CUSTOM_DEFAULT      0xFF6A00
+#define PERSIST_KEY_CLR_CUSTOM  16   // bool: custom theme on
+#define PERSIST_KEY_FITDOTS     17   // bool: emery-only, pull ring in
+#define NUM_SETTINGS            18   // all bool settings occupy keys 0..17
+// Custom theme colors: packed 0xRRGGBB ints, read separately from the bool cache.
+#define PERSIST_KEY_CUSTOM_BG         18
+#define PERSIST_KEY_CUSTOM_TIME       19
+#define PERSIST_KEY_CUSTOM_DOT_ACTIVE 20
+#define PERSIST_KEY_CUSTOM_DOT_DIM    21
+#define PERSIST_KEY_CUSTOM_STEPS      22
+#define PERSIST_KEY_CUSTOM_DATE       23
+
+// Defaults for the custom theme (a legible dark scheme).
+#define CUSTOM_BG_DEFAULT         0x000000
+#define CUSTOM_TIME_DEFAULT       0xFFFFFF
+#define CUSTOM_DOT_ACTIVE_DEFAULT 0xFF6A00
+#define CUSTOM_DOT_DIM_DEFAULT    0x555555
+#define CUSTOM_STEPS_DEFAULT      0xAAAAAA
+#define CUSTOM_DATE_DEFAULT       0xAAAAAA
 
 #define KEY_TEMPERATURE 101
 #define KEY_JSREADY     102
@@ -84,7 +97,14 @@ static int weatherTemp;
 static int s_dotSize = DOT_SIZE_DEFAULT;
 
 static bool s_arr[NUM_SETTINGS];
-static int s_customColor = CLR_CUSTOM_DEFAULT;
+
+// Custom theme colors (packed 0xRRGGBB), loaded in config_init().
+static int s_customBg     = CUSTOM_BG_DEFAULT;
+static int s_customTime   = CUSTOM_TIME_DEFAULT;
+static int s_customActive = CUSTOM_DOT_ACTIVE_DEFAULT;
+static int s_customDim    = CUSTOM_DOT_DIM_DEFAULT;
+static int s_customSteps  = CUSTOM_STEPS_DEFAULT;
+static int s_customDate   = CUSTOM_DATE_DEFAULT;
 
 /* Config */
 
@@ -94,20 +114,9 @@ static GColor8 hexToGColor(int hex) {
   return GColorFromRGB((hex >> 16) & 0xFF, (hex >> 8) & 0xFF, hex & 0xFF);
 }
 
-// Darkened accent for the dim/inactive dots (~45% brightness).
-static GColor8 customDarkColor() {
-  int r = (s_customColor >> 16) & 0xFF;
-  int g = (s_customColor >> 8) & 0xFF;
-  int b = s_customColor & 0xFF;
-  return GColorFromRGB(r * 45 / 100, g * 45 / 100, b * 45 / 100);
-}
-
-// Lightened accent for the step count / date text (mixed halfway to white).
-static GColor8 customLightColor() {
-  int r = (s_customColor >> 16) & 0xFF;
-  int g = (s_customColor >> 8) & 0xFF;
-  int b = s_customColor & 0xFF;
-  return GColorFromRGB(r + (255 - r) / 2, g + (255 - g) / 2, b + (255 - b) / 2);
+// Read a persisted custom color, falling back to its default if unset.
+static int readCustomColor(int key, int fallback) {
+  return persist_exists(key) ? persist_read_int(key) : fallback;
 }
 
 bool config_get(int key) {
@@ -148,11 +157,12 @@ void config_init() {
     s_arr[i] = persist_read_bool(i);
   }
 
-  if (persist_exists(PERSIST_KEY_CLR_CUSTOM_VALUE)) {
-    s_customColor = persist_read_int(PERSIST_KEY_CLR_CUSTOM_VALUE);
-  } else {
-    s_customColor = CLR_CUSTOM_DEFAULT;
-  }
+  s_customBg     = readCustomColor(PERSIST_KEY_CUSTOM_BG,         CUSTOM_BG_DEFAULT);
+  s_customTime   = readCustomColor(PERSIST_KEY_CUSTOM_TIME,       CUSTOM_TIME_DEFAULT);
+  s_customActive = readCustomColor(PERSIST_KEY_CUSTOM_DOT_ACTIVE, CUSTOM_DOT_ACTIVE_DEFAULT);
+  s_customDim    = readCustomColor(PERSIST_KEY_CUSTOM_DOT_DIM,    CUSTOM_DOT_DIM_DEFAULT);
+  s_customSteps  = readCustomColor(PERSIST_KEY_CUSTOM_STEPS,      CUSTOM_STEPS_DEFAULT);
+  s_customDate   = readCustomColor(PERSIST_KEY_CUSTOM_DATE,       CUSTOM_DATE_DEFAULT);
 
   if (config_get(PERSIST_KEY_BOLD_DOTS)) {
     s_dotSize = DOT_SIZE_BOLD;
@@ -161,9 +171,16 @@ void config_init() {
   }
 }
 
+static GColor8 getBackgroundColor() {
+  if (config_get(PERSIST_KEY_CLR_CUSTOM)) {
+    return hexToGColor(s_customBg);
+  }
+  return GColorBlack;
+}
+
 static GColor8 getTimeColor() {
   if (config_get(PERSIST_KEY_CLR_CUSTOM)) {
-    return hexToGColor(s_customColor);
+    return hexToGColor(s_customTime);
   } else if (config_get(PERSIST_KEY_CLR_ORANGE)) {
     return GColorOrange;
   } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
@@ -183,7 +200,7 @@ static GColor8 getTimeColor() {
 
 static GColor8 getDotMainColor() {
   if (config_get(PERSIST_KEY_CLR_CUSTOM)) {
-    return hexToGColor(s_customColor);
+    return hexToGColor(s_customActive);
   } else if (config_get(PERSIST_KEY_CLR_ORANGE)) {
     return GColorOrange;
   } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
@@ -203,7 +220,7 @@ static GColor8 getDotMainColor() {
 
 static GColor8 getDotDarkColor() {
   if (config_get(PERSIST_KEY_CLR_CUSTOM)) {
-    return customDarkColor();
+    return hexToGColor(s_customDim);
   } else if (config_get(PERSIST_KEY_CLR_ORANGE)) {
     return GColorDarkGray;
   } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
@@ -223,7 +240,7 @@ static GColor8 getDotDarkColor() {
 
 static GColor8 getStepCountColor() {
   if (config_get(PERSIST_KEY_CLR_CUSTOM)) {
-    return customLightColor();
+    return hexToGColor(s_customSteps);
   } else if (config_get(PERSIST_KEY_CLR_ORANGE)) {
     return GColorRajah;
   } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
@@ -243,7 +260,7 @@ static GColor8 getStepCountColor() {
 
 static GColor8 getDateColor() {
   if (config_get(PERSIST_KEY_CLR_CUSTOM)) {
-    return customLightColor();
+    return hexToGColor(s_customDate);
   } else if (config_get(PERSIST_KEY_CLR_ORANGE)) {
     return GColorRajah;
   } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
@@ -332,6 +349,7 @@ static void update_time() {
 }
 
 static void setLayerTextColors() {
+  window_set_background_color(s_main_window, getBackgroundColor());
   text_layer_set_text_color(s_time_layer, getTimeColor());
   text_layer_set_text_color(s_step_count_layer, getStepCountColor());
   text_layer_set_text_color(s_dayt_layer, getDateColor());
@@ -379,8 +397,8 @@ static void in_recv_handler(DictionaryIterator *iter, void *context) {
   } else {
     Tuple *t = dict_read_first(iter);
     while(t) {
-      if (t->key == PERSIST_KEY_CLR_CUSTOM_VALUE) {
-        // Custom accent arrives as a packed 0xRRGGBB integer, not a bool string
+      if (t->key >= PERSIST_KEY_CUSTOM_BG && t->key <= PERSIST_KEY_CUSTOM_DATE) {
+        // Custom theme colors arrive as packed 0xRRGGBB integers, not bool strings
         persist_write_int(t->key, (int)t->value->int32);
       } else {
         persist_write_bool(t->key, strcmp(t->value->cstring, "true") == 0 ? true : false);
@@ -588,6 +606,20 @@ static void draw_proc(Layer *layer, GContext *ctx) {
     lastMin = s_last_time.minutes;  // For real
   }
 
+  // Base ring radius. On emery, the "Fit dots" option pulls the ring in so a
+  // full 5-dot minute clears the screen edge instead of being clipped.
+  int baseDist = DOT_DISTANCE;
+#if defined(PBL_PLATFORM_EMERY)
+  if (config_get(PERSIST_KEY_FITDOTS)) {
+    int halfMin = (bounds.size.w < bounds.size.h ? bounds.size.w : bounds.size.h) / 2;
+    int stackReach = 4 * DOT_SPACING + s_dotSize;  // outer edge beyond baseDist
+    int fit = halfMin - stackReach - 4;            // 4px breathing margin
+    if (fit > 0 && fit < baseDist) {
+      baseDist = fit;
+    }
+  }
+#endif
+
   for (int m = 0; m <= 59; m++) {
     GColor8 dotColor = (m <= lastMin) ? getDotMainColor() : getDotDarkColor();
     graphics_context_set_fill_color(ctx, dotColor);
@@ -601,8 +633,8 @@ static void draw_proc(Layer *layer, GContext *ctx) {
       graphics_context_set_stroke_color(ctx, dotColor);
     }
 
-    int v = DOT_DISTANCE;
-    
+    int v = baseDist;
+
     int numDots = s_dotArray[m];
     
     if (m == lastMin || SCREENSHOT_RUN) {
@@ -648,8 +680,8 @@ static void draw_proc(Layer *layer, GContext *ctx) {
       graphics_context_set_fill_color(ctx, GColorOrange);
     }
     
-    // Draw dot
-    int v = DOT_DISTANCE - DOT_SPACING - 1;
+    // Draw dot (just inside the ring, tracking the fit-adjusted radius)
+    int v = baseDist - DOT_SPACING - 1;
     for(int y = 0; y < 1; y++) {
       for(int x = 0; x < 1; x++) {
         GPoint point = (GPoint) {
@@ -740,7 +772,7 @@ static void init() {
   
   // Create main Window element and assign to pointer
   s_main_window = window_create();
-  window_set_background_color(s_main_window, GColorBlack);
+  window_set_background_color(s_main_window, getBackgroundColor());
 
   // Set handlers to manage the elements inside the Window
   window_set_window_handlers(s_main_window, (WindowHandlers) {

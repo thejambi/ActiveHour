@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(pebble --version)",
-      "WebSearch"
-    ]
-  }
-}

@@ -9,11 +9,10 @@ Pebble.addEventListener('showConfiguration', function(e) {
 Pebble.addEventListener('webviewclosed', function(e) {
   var json = JSON.parse(decodeURIComponent(e.response));
 
-  // Custom accent arrives as a "#rrggbb" string; the watch wants a packed integer.
-  var customHex = (json.clr_custom_value || '#ff6a00').replace('#', '');
-  var customValue = parseInt(customHex, 16);
-  if (isNaN(customValue)) {
-    customValue = 0xff6a00;
+  // Custom theme colors arrive as "#rrggbb" strings; the watch wants packed ints.
+  function hexToInt(hex, fallback) {
+    var v = parseInt(('' + hex).replace('#', ''), 16);
+    return isNaN(v) ? fallback : v;
   }
 
   var options = {
@@ -27,11 +26,17 @@ Pebble.addEventListener('webviewclosed', function(e) {
     "PERSIST_KEY_CLR_RED": '' + json.clr_red,
     "PERSIST_KEY_CLR_TEAL": '' + json.clr_teal,
     "PERSIST_KEY_CLR_CUSTOM": '' + json.clr_custom,
-    "PERSIST_KEY_CLR_CUSTOM_VALUE": customValue,
+    "PERSIST_KEY_CUSTOM_BG": hexToInt(json.custom_bg, 0x000000),
+    "PERSIST_KEY_CUSTOM_TIME": hexToInt(json.custom_time, 0xffffff),
+    "PERSIST_KEY_CUSTOM_DOT_ACTIVE": hexToInt(json.custom_dot_active, 0xff6a00),
+    "PERSIST_KEY_CUSTOM_DOT_DIM": hexToInt(json.custom_dot_dim, 0x555555),
+    "PERSIST_KEY_CUSTOM_STEPS": hexToInt(json.custom_steps, 0xaaaaaa),
+    "PERSIST_KEY_CUSTOM_DATE": hexToInt(json.custom_date, 0xaaaaaa),
     "PERSIST_KEY_WEATHER": '' + json.weather,
     "PERSIST_KEY_BOLD_TEXT": '' + json.boldText,
     "PERISST_KEY_BOLD_DOTS": '' + json.boldDots,
-    "PERSIST_KEY_MINMARKS": '' + json.minmarks
+    "PERSIST_KEY_MINMARKS": '' + json.minmarks,
+    "PERSIST_KEY_FITDOTS": '' + json.fitdots
   };
 
   Pebble.sendAppMessage(options,
