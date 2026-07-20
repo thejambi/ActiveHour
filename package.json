@@ -18,8 +18,13 @@
             "PERSIST_KEY_BOLD_TEXT": 7,
             "PERSIST_KEY_CLR_BLUE": 5,
             "PERSIST_KEY_CLR_BW": 2,
+            "PERSIST_KEY_CLR_CUSTOM": 12,
+            "PERSIST_KEY_CLR_CUSTOM_VALUE": 13,
             "PERSIST_KEY_CLR_GREEN": 4,
             "PERSIST_KEY_CLR_ORANGE": 3,
+            "PERSIST_KEY_CLR_PURPLE": 9,
+            "PERSIST_KEY_CLR_RED": 10,
+            "PERSIST_KEY_CLR_TEAL": 11,
             "PERSIST_KEY_DATE": 0,
             "PERSIST_KEY_STEPS": 1,
             "PERSIST_KEY_WEATHER": 6

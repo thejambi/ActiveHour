@@ -10,6 +10,13 @@ Pebble.addEventListener('showConfiguration', function(e) {
 Pebble.addEventListener('webviewclosed', function(e) {
   var json = JSON.parse(decodeURIComponent(e.response));
 
+  // Custom accent arrives as a "#rrggbb" string; the watch wants a packed integer.
+  var customHex = (json.clr_custom_value || '#ff6a00').replace('#', '');
+  var customValue = parseInt(customHex, 16);
+  if (isNaN(customValue)) {
+    customValue = 0xff6a00;
+  }
+
   var options = {
     "PERSIST_KEY_DATE": '' + json.date,
     "PERSIST_KEY_STEPS": '' + json.steps,
@@ -17,6 +24,11 @@ Pebble.addEventListener('webviewclosed', function(e) {
     "PERSIST_KEY_CLR_ORANGE": '' + json.clr_orange,
     "PERSIST_KEY_CLR_GREEN": '' + json.clr_green,
     "PERSIST_KEY_CLR_BLUE": '' + json.clr_blue,
+    "PERSIST_KEY_CLR_PURPLE": '' + json.clr_purple,
+    "PERSIST_KEY_CLR_RED": '' + json.clr_red,
+    "PERSIST_KEY_CLR_TEAL": '' + json.clr_teal,
+    "PERSIST_KEY_CLR_CUSTOM": '' + json.clr_custom,
+    "PERSIST_KEY_CLR_CUSTOM_VALUE": customValue,
     "PERSIST_KEY_WEATHER": '' + json.weather,
     "PERSIST_KEY_BOLD_TEXT": '' + json.boldText,
     "PERISST_KEY_BOLD_DOTS": '' + json.boldDots

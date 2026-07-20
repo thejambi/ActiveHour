@@ -44,7 +44,15 @@
 #define PERSIST_KEY_WEATHER     6
 #define PERSIST_KEY_BOLD_TEXT   7
 #define PERSIST_KEY_BOLD_DOTS   8
-#define NUM_SETTINGS            9
+#define PERSIST_KEY_CLR_PURPLE  9
+#define PERSIST_KEY_CLR_RED     10
+#define PERSIST_KEY_CLR_TEAL    11
+#define PERSIST_KEY_CLR_CUSTOM  12
+#define NUM_SETTINGS            13
+// Not a bool: the packed 0xRRGGBB accent picked in the custom color picker.
+// Lives just past the bool settings so it stays out of the s_arr bool loop.
+#define PERSIST_KEY_CLR_CUSTOM_VALUE 13
+#define CLR_CUSTOM_DEFAULT      0xFF6A00
 
 #define KEY_TEMPERATURE 101
 #define KEY_JSREADY     102
@@ -75,8 +83,31 @@ static int weatherTemp;
 static int s_dotSize = DOT_SIZE_DEFAULT;
 
 static bool s_arr[NUM_SETTINGS];
+static int s_customColor = CLR_CUSTOM_DEFAULT;
 
 /* Config */
+
+// Convert a packed 0xRRGGBB value to the nearest Pebble color (auto-quantizes
+// to the 64-color palette, and to black/white on B&W watches like diorite).
+static GColor8 hexToGColor(int hex) {
+  return GColorFromRGB((hex >> 16) & 0xFF, (hex >> 8) & 0xFF, hex & 0xFF);
+}
+
+// Darkened accent for the dim/inactive dots (~45% brightness).
+static GColor8 customDarkColor() {
+  int r = (s_customColor >> 16) & 0xFF;
+  int g = (s_customColor >> 8) & 0xFF;
+  int b = s_customColor & 0xFF;
+  return GColorFromRGB(r * 45 / 100, g * 45 / 100, b * 45 / 100);
+}
+
+// Lightened accent for the step count / date text (mixed halfway to white).
+static GColor8 customLightColor() {
+  int r = (s_customColor >> 16) & 0xFF;
+  int g = (s_customColor >> 8) & 0xFF;
+  int b = s_customColor & 0xFF;
+  return GColorFromRGB(r + (255 - r) / 2, g + (255 - g) / 2, b + (255 - b) / 2);
+}
 
 bool config_get(int key) {
   if (SCREENSHOT_RUN) {
@@ -115,7 +146,13 @@ void config_init() {
   for(int i = 0; i < NUM_SETTINGS; i++) {
     s_arr[i] = persist_read_bool(i);
   }
-  
+
+  if (persist_exists(PERSIST_KEY_CLR_CUSTOM_VALUE)) {
+    s_customColor = persist_read_int(PERSIST_KEY_CLR_CUSTOM_VALUE);
+  } else {
+    s_customColor = CLR_CUSTOM_DEFAULT;
+  }
+
   if (config_get(PERSIST_KEY_BOLD_DOTS)) {
     s_dotSize = DOT_SIZE_BOLD;
   } else {
@@ -124,60 +161,100 @@ void config_init() {
 }
 
 static GColor8 getTimeColor() {
-  if (config_get(PERSIST_KEY_CLR_ORANGE)) {
+  if (config_get(PERSIST_KEY_CLR_CUSTOM)) {
+    return hexToGColor(s_customColor);
+  } else if (config_get(PERSIST_KEY_CLR_ORANGE)) {
     return GColorOrange;
   } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
     return GColorChromeYellow;
   } else if (config_get(PERSIST_KEY_CLR_BLUE)) {
     return GColorWhite;
-  }
-  // BW
-  return GColorWhite;
-}
-
-static GColor8 getDotMainColor() {
-  if (config_get(PERSIST_KEY_CLR_ORANGE)) {
-    return GColorOrange;
-  } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
-    return GColorGreen;
-  } else if (config_get(PERSIST_KEY_CLR_BLUE)) {
+  } else if (config_get(PERSIST_KEY_CLR_PURPLE)) {
+    return GColorVividViolet;
+  } else if (config_get(PERSIST_KEY_CLR_RED)) {
+    return GColorRed;
+  } else if (config_get(PERSIST_KEY_CLR_TEAL)) {
     return GColorCyan;
   }
   // BW
   return GColorWhite;
 }
 
+static GColor8 getDotMainColor() {
+  if (config_get(PERSIST_KEY_CLR_CUSTOM)) {
+    return hexToGColor(s_customColor);
+  } else if (config_get(PERSIST_KEY_CLR_ORANGE)) {
+    return GColorOrange;
+  } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
+    return GColorGreen;
+  } else if (config_get(PERSIST_KEY_CLR_BLUE)) {
+    return GColorCyan;
+  } else if (config_get(PERSIST_KEY_CLR_PURPLE)) {
+    return GColorVividViolet;
+  } else if (config_get(PERSIST_KEY_CLR_RED)) {
+    return GColorRed;
+  } else if (config_get(PERSIST_KEY_CLR_TEAL)) {
+    return GColorTiffanyBlue;
+  }
+  // BW
+  return GColorWhite;
+}
+
 static GColor8 getDotDarkColor() {
-  if (config_get(PERSIST_KEY_CLR_ORANGE)) {
+  if (config_get(PERSIST_KEY_CLR_CUSTOM)) {
+    return customDarkColor();
+  } else if (config_get(PERSIST_KEY_CLR_ORANGE)) {
     return GColorDarkGray;
   } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
     return GColorDarkGreen;
   } else if (config_get(PERSIST_KEY_CLR_BLUE)) {
     return GColorBlueMoon;
+  } else if (config_get(PERSIST_KEY_CLR_PURPLE)) {
+    return GColorImperialPurple;
+  } else if (config_get(PERSIST_KEY_CLR_RED)) {
+    return GColorDarkCandyAppleRed;
+  } else if (config_get(PERSIST_KEY_CLR_TEAL)) {
+    return GColorMidnightGreen;
   }
   // BW
   return GColorDarkGray;
 }
 
 static GColor8 getStepCountColor() {
-  if (config_get(PERSIST_KEY_CLR_ORANGE)) {
+  if (config_get(PERSIST_KEY_CLR_CUSTOM)) {
+    return customLightColor();
+  } else if (config_get(PERSIST_KEY_CLR_ORANGE)) {
     return GColorRajah;
   } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
     return GColorGreen;
   } else if (config_get(PERSIST_KEY_CLR_BLUE)) {
     return GColorPictonBlue;
+  } else if (config_get(PERSIST_KEY_CLR_PURPLE)) {
+    return GColorBabyBlueEyes;
+  } else if (config_get(PERSIST_KEY_CLR_RED)) {
+    return GColorMelon;
+  } else if (config_get(PERSIST_KEY_CLR_TEAL)) {
+    return GColorMediumAquamarine;
   }
   // BW
   return GColorLightGray;
 }
 
 static GColor8 getDateColor() {
-  if (config_get(PERSIST_KEY_CLR_ORANGE)) {
+  if (config_get(PERSIST_KEY_CLR_CUSTOM)) {
+    return customLightColor();
+  } else if (config_get(PERSIST_KEY_CLR_ORANGE)) {
     return GColorRajah;
   } else if (config_get(PERSIST_KEY_CLR_GREEN)) {
     return GColorGreen;
   } else if (config_get(PERSIST_KEY_CLR_BLUE)) {
     return GColorPictonBlue;
+  } else if (config_get(PERSIST_KEY_CLR_PURPLE)) {
+    return GColorBabyBlueEyes;
+  } else if (config_get(PERSIST_KEY_CLR_RED)) {
+    return GColorMelon;
+  } else if (config_get(PERSIST_KEY_CLR_TEAL)) {
+    return GColorMediumAquamarine;
   }
   // BW
   return GColorLightGray;
@@ -301,7 +378,12 @@ static void in_recv_handler(DictionaryIterator *iter, void *context) {
   } else {
     Tuple *t = dict_read_first(iter);
     while(t) {
-      persist_write_bool(t->key, strcmp(t->value->cstring, "true") == 0 ? true : false);
+      if (t->key == PERSIST_KEY_CLR_CUSTOM_VALUE) {
+        // Custom accent arrives as a packed 0xRRGGBB integer, not a bool string
+        persist_write_int(t->key, (int)t->value->int32);
+      } else {
+        persist_write_bool(t->key, strcmp(t->value->cstring, "true") == 0 ? true : false);
+      }
       t = dict_read_next(iter);
     }
   
