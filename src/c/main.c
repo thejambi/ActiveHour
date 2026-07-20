@@ -577,6 +577,12 @@ static void health_handler(HealthEventType event, void *context) {
     case HealthEventSleepUpdate:
 //       APP_LOG(APP_LOG_LEVEL_INFO, "New HealthService HealthEventSleepUpdate event");
       break;
+    case HealthEventMetricAlert:
+      // Not used by this watchface
+      break;
+    case HealthEventHeartRateUpdate:
+      // Not used by this watchface
+      break;
   }
 }
 
