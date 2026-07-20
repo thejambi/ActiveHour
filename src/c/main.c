@@ -17,13 +17,13 @@
 
 // Vertical positions of the centered text layers. The fonts are the same
 // physical size on every platform, so emery reuses basalt's absolute gaps
-// (step->time 15px, time->date 45px) re-centered on its taller 228px screen
-// (center ~y114) rather than scaling the offsets up. Chalk keeps its own tuned
-// offsets.
+// (step->time 15px, time->date 45px). The time is placed at the same fraction
+// of screen height as basalt (~0.46, sitting above center to leave room for the
+// date below) rather than dead-centering the cluster. Chalk keeps its own offsets.
 #if defined(PBL_PLATFORM_EMERY)
-  #define TIME_Y  89
-  #define STEP_Y  74
-  #define DATE_Y  134
+  #define TIME_Y  83
+  #define STEP_Y  68
+  #define DATE_Y  128
 #elif defined(PBL_ROUND)
   #define TIME_Y  61
   #define STEP_Y  45
