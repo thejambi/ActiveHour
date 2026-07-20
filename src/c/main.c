@@ -48,10 +48,11 @@
 #define PERSIST_KEY_CLR_RED     10
 #define PERSIST_KEY_CLR_TEAL    11
 #define PERSIST_KEY_CLR_CUSTOM  12
-#define NUM_SETTINGS            13
 // Not a bool: the packed 0xRRGGBB accent picked in the custom color picker.
-// Lives just past the bool settings so it stays out of the s_arr bool loop.
 #define PERSIST_KEY_CLR_CUSTOM_VALUE 13
+// Key 14 (BT) retired. Hour marks live at 15.
+#define PERSIST_KEY_MINMARKS    15
+#define NUM_SETTINGS            16
 #define CLR_CUSTOM_DEFAULT      0xFF6A00
 
 #define KEY_TEMPERATURE 101
@@ -588,12 +589,18 @@ static void draw_proc(Layer *layer, GContext *ctx) {
   }
 
   for (int m = 0; m <= 59; m++) {
-    if (m <= lastMin) {
-      graphics_context_set_fill_color(ctx, getDotMainColor());
-    } else {
-      graphics_context_set_fill_color(ctx, getDotDarkColor());
+    GColor8 dotColor = (m <= lastMin) ? getDotMainColor() : getDotDarkColor();
+    graphics_context_set_fill_color(ctx, dotColor);
+
+    // Hour marks: with bold dots on, the base dot at each clock-hour position
+    // (every 5 minutes = the 12 ticks) is drawn hollow instead of filled.
+    bool hourMark = config_get(PERSIST_KEY_BOLD_DOTS)
+                 && config_get(PERSIST_KEY_MINMARKS)
+                 && (m % 5 == 0);
+    if (hourMark) {
+      graphics_context_set_stroke_color(ctx, dotColor);
     }
-    
+
     int v = DOT_DISTANCE;
     
     int numDots = s_dotArray[m];
@@ -615,7 +622,11 @@ static void draw_proc(Layer *layer, GContext *ctx) {
             .x = (int16_t)(sin_lookup(TRIG_MAX_ANGLE * m / 60) * (int32_t)(v) / TRIG_MAX_RATIO) + center.x,
             .y = (int16_t)(-cos_lookup(TRIG_MAX_ANGLE * m / 60) * (int32_t)(v) / TRIG_MAX_RATIO) + center.y,
           };
-          graphics_fill_circle(ctx, GPoint(point.x + x, point.y + y), s_dotSize);
+          if (hourMark && i == 0) {
+            graphics_draw_circle(ctx, GPoint(point.x + x, point.y + y), s_dotSize);
+          } else {
+            graphics_fill_circle(ctx, GPoint(point.x + x, point.y + y), s_dotSize);
+          }
         }
       }
       

@@ -25,6 +25,7 @@
             "PERSIST_KEY_CLR_PURPLE": 9,
             "PERSIST_KEY_CLR_RED": 10,
             "PERSIST_KEY_CLR_TEAL": 11,
+            "PERSIST_KEY_MINMARKS": 15,
             "PERSIST_KEY_DATE": 0,
             "PERSIST_KEY_STEPS": 1,
             "PERSIST_KEY_WEATHER": 6

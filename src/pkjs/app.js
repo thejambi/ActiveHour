@@ -30,7 +30,8 @@ Pebble.addEventListener('webviewclosed', function(e) {
     "PERSIST_KEY_CLR_CUSTOM_VALUE": customValue,
     "PERSIST_KEY_WEATHER": '' + json.weather,
     "PERSIST_KEY_BOLD_TEXT": '' + json.boldText,
-    "PERISST_KEY_BOLD_DOTS": '' + json.boldDots
+    "PERISST_KEY_BOLD_DOTS": '' + json.boldDots,
+    "PERSIST_KEY_MINMARKS": '' + json.minmarks
   };
 
   Pebble.sendAppMessage(options,
