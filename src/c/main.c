@@ -110,7 +110,12 @@ static Window *s_main_window;
 static TextLayer *s_time_layer, *s_step_count_layer, *s_dayt_layer;
 static Layer *s_canvas_layer;
 static Time s_last_time;
-static char s_step_count_buffer[7], s_dayt_buffer[12];
+// Sized for the longest each can hold, plus the terminator:
+//   steps "%d"        -> up to 6 digits
+//   sleep "%dh %dm"   -> "23h 59m" is 7 chars (the old [7] truncated this to
+//                        "10h 23" for any sleep of 10 hours or more)
+//   date  "%a, %b %e" -> "Wed, Sep 22" is 11 chars
+static char s_step_count_buffer[12], s_dayt_buffer[16];
 
 static int s_dotArray[60];
 static int s_lastStepTotal = 0;
@@ -356,11 +361,16 @@ static void updateStepsLabel() {
       snprintf(s_step_count_buffer, sizeof(s_step_count_buffer), "%d", s_lastStepTotal);
       text_layer_set_text(s_step_count_layer, s_step_count_buffer);
     } else {
-      // Show sleep time
+      // Show sleep time. Unsigned modulo bounds both fields to two digits, so
+      // "99h 59m" is the longest possible result and the compiler can prove it
+      // fits. (The old [7] buffer silently rendered any 10h+ sleep as "10h 23".)
       int secs = getSleepSeconds();
-      int hrs = secs / 3600;
-      int mins = (secs - (hrs*3600)) / 60;
-      snprintf(s_step_count_buffer, sizeof(s_step_count_buffer), "%dh %dm", hrs, mins);
+      if (secs < 0) {
+        secs = 0;
+      }
+      unsigned hrs = ((unsigned)secs / 3600u) % 100u;
+      unsigned mins = ((unsigned)secs / 60u) % 60u;
+      snprintf(s_step_count_buffer, sizeof(s_step_count_buffer), "%uh %um", hrs, mins);
       text_layer_set_text(s_step_count_layer, s_step_count_buffer);
     }
   }
@@ -532,7 +542,7 @@ static TextLayout getBaseTextLayout() {
     if (config_get(PERSIST_KEY_FITDOTS)) {
       l.timeH = 42; l.timeY = 83; l.stepY = 68; l.dateY = 128;
     } else {
-      l.timeH = 60; l.timeY = 75; l.stepY = 60; l.dateY = 138;
+      l.timeH = 60; l.timeY = 75; l.stepY = 56; l.dateY = 138;
     }
 #elif defined(PBL_PLATFORM_GABBRO)
     l.timeH = 60; l.timeY = 90; l.stepY = 75; l.dateY = 153;
@@ -559,7 +569,7 @@ static TextLayout getBaseTextLayout() {
     // clock is allowed to run past the ring too. Both faces sit at 58 — Roboto
     // (148) still clears the ring, Montserrat (167) overlaps the innermost dots
     // by design, the same trade LECO makes.
-    l.timeH = 58; l.timeY = 74; l.stepY = 61; l.dateY = 137;
+    l.timeH = 58; l.timeY = 74; l.stepY = 55; l.dateY = 137;
   }
 #elif defined(PBL_PLATFORM_GABBRO)
   if (font == CLOCK_FONT_MONT) {
@@ -630,10 +640,24 @@ static uint32_t timeFontResource() {
 #endif
 }
 
+// The step/sleep and date lines. Zoom view has room for a larger pair: measured
+// at "Wed, Sep 22", GOTHIC_24_BOLD is 90px wide, and the ring's inner clearance
+// at the date's y is ~124px there. GOTHIC_28 (115px) would leave almost nothing,
+// so 24 is the largest comfortable step up from 18.
+static GFont secondaryFont(bool bold) {
+#if defined(PBL_PLATFORM_EMERY)
+  if (!config_get(PERSIST_KEY_FITDOTS)) {
+    return fonts_get_system_font(bold ? FONT_KEY_GOTHIC_24_BOLD
+                                      : FONT_KEY_GOTHIC_24);
+  }
+#endif
+  return fonts_get_system_font(bold ? FONT_KEY_GOTHIC_18_BOLD
+                                    : FONT_KEY_GOTHIC_18);
+}
+
 static void setLayerFonts() {
   bool bold = config_get(PERSIST_KEY_BOLD_TEXT);
-  GFont textFont = fonts_get_system_font(bold ? FONT_KEY_GOTHIC_18_BOLD
-                                              : FONT_KEY_GOTHIC_18);
+  GFont textFont = secondaryFont(bold);
   text_layer_set_font(s_step_count_layer, textFont);
   text_layer_set_font(s_dayt_layer, textFont);
 
@@ -1027,6 +1051,7 @@ void comm_init() {
   
   app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
 }
+
 
 
 
