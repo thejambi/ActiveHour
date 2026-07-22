@@ -445,7 +445,66 @@ typedef struct {
   int timeH;
 } TextLayout;
 
-static TextLayout getTextLayout() {
+/* ---------------------------------------------------------------------------
+ * Layout tuning
+ *
+ * Per-font pixel nudges applied on top of the layout picked below. Positive
+ * moves down, negative moves up. Every face sits differently inside its
+ * TextLayer box — Bitham, Roboto, Montserrat and LECO all have different
+ * internal leading — so the positions below get each one close and these dial
+ * it in by eye. All zeros means "exactly as laid out below", which is where
+ * things stand today.
+ *
+ * Workflow:
+ *   edit a number here
+ *   pebble build && pebble install --emulator emery
+ *   pebble screenshot --emulator emery shot.png
+ *
+ * `time` moves only the clock. `step` and `date` move the lines above and
+ * below it, so nudging the clock alone will tighten one gap and open the other
+ * — adjust all three if you want the block to move as a unit.
+ * ------------------------------------------------------------------------- */
+typedef struct {
+  int time;   // clock text
+  int step;   // step / sleep line above it
+  int date;   // date line below it
+} LayoutTune;
+
+static LayoutTune getLayoutTune(ClockFont font) {
+#if defined(PBL_PLATFORM_EMERY)
+  // Emery is the primary tuning target. To tune the zoom view separately from
+  // the fitted one, branch on config_get(PERSIST_KEY_FITDOTS) inside a case:
+  //   case CLOCK_FONT_MONT:
+  //     return config_get(PERSIST_KEY_FITDOTS) ? (LayoutTune){ 0, 0, 0 }
+  //                                            : (LayoutTune){ -2, 0, 0 };
+  switch (font) {
+    case CLOCK_FONT_BITHAM: return (LayoutTune){ 0, 0, 0 };
+    case CLOCK_FONT_ROBOTO: return (LayoutTune){ 0, 0, 0 };
+    case CLOCK_FONT_MONT:   return (LayoutTune){ 0, 0, 0 };
+    case CLOCK_FONT_LECO:   return (LayoutTune){ 0, 0, 0 };
+  }
+#elif defined(PBL_PLATFORM_GABBRO)
+  switch (font) {
+    case CLOCK_FONT_BITHAM: return (LayoutTune){ 0, 0, 0 };
+    case CLOCK_FONT_ROBOTO: return (LayoutTune){ 0, 0, 0 };
+    case CLOCK_FONT_MONT:   return (LayoutTune){ 0, 0, 0 };
+    case CLOCK_FONT_LECO:   return (LayoutTune){ 0, 0, 0 };
+  }
+#else
+  // 144x168 and chalk: every font sits at the original TIME_Y / STEP_Y / DATE_Y,
+  // so these nudge the smaller faces (Roboto 40, Montserrat 36) if they read low.
+  switch (font) {
+    case CLOCK_FONT_BITHAM: return (LayoutTune){ 0, 0, 0 };
+    case CLOCK_FONT_ROBOTO: return (LayoutTune){ 0, 0, 0 };
+    case CLOCK_FONT_MONT:   return (LayoutTune){ 0, 0, 0 };
+    case CLOCK_FONT_LECO:   return (LayoutTune){ 0, 0, 0 };
+  }
+#endif
+  return (LayoutTune){ 0, 0, 0 };
+}
+
+// The layout before tuning. getTextLayout() wraps this and applies the nudges.
+static TextLayout getBaseTextLayout() {
   TextLayout l;
   ClockFont font = getClockFont();
 
@@ -482,11 +541,11 @@ static TextLayout getTextLayout() {
   } else {
     // Ring left at DOT_DISTANCE 82 — the edge dots crop, but the wider gap
     // inside the ring buys a much larger time.
-    if (font == CLOCK_FONT_MONT) {
-      l.timeH = 52; l.timeY = 77; l.stepY = 62; l.dateY = 132;
-    } else {
-      l.timeH = 58; l.timeY = 74; l.stepY = 61; l.dateY = 137;
-    }
+    // "Zoom view": the ring is already cropping at the screen edge here, so the
+    // clock is allowed to run past the ring too. Both faces sit at 58 — Roboto
+    // (148) still clears the ring, Montserrat (167) overlaps the innermost dots
+    // by design, the same trade LECO makes.
+    l.timeH = 58; l.timeY = 74; l.stepY = 61; l.dateY = 137;
   }
 #elif defined(PBL_PLATFORM_GABBRO)
   if (font == CLOCK_FONT_MONT) {
@@ -500,6 +559,17 @@ static TextLayout getTextLayout() {
   l.timeH = (font == CLOCK_FONT_MONT) ? 36 : 40;
   l.timeY = TIME_Y; l.stepY = STEP_Y; l.dateY = DATE_Y;
 #endif
+  return l;
+}
+
+static TextLayout getTextLayout() {
+  TextLayout l = getBaseTextLayout();
+  LayoutTune t = getLayoutTune(getClockFont());
+
+  l.timeY += t.time;
+  l.stepY += t.step;
+  l.dateY += t.date;
+
   return l;
 }
 
@@ -530,7 +600,7 @@ static uint32_t timeFontResource() {
     return bold ? RESOURCE_ID_FONT_TIME_B_48 : RESOURCE_ID_FONT_TIME_L_48;
   }
   if (mont) {
-    return bold ? RESOURCE_ID_FONT_MONT_B_52 : RESOURCE_ID_FONT_MONT_L_52;
+    return bold ? RESOURCE_ID_FONT_MONT_B_58 : RESOURCE_ID_FONT_MONT_L_58;
   }
   return bold ? RESOURCE_ID_FONT_TIME_B_58 : RESOURCE_ID_FONT_TIME_L_58;
 #elif defined(PBL_PLATFORM_GABBRO)
