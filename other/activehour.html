@@ -145,7 +145,7 @@
       /* ---------- Font selector ---------- */
       .font-row { display: block; padding: 14px 0; border-top: 1px solid var(--divider); }
       .font-row:first-of-type { border-top: none; }
-      .font-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+      .font-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
       .font-option { position: relative; cursor: pointer; -webkit-tap-highlight-color: transparent; }
       .font-option input { position: absolute; opacity: 0; width: 0; height: 0; }
       .font-name {
@@ -349,7 +349,7 @@
         <div class="font-row">
           <span class="setting-text">
             <span class="label">Clock font</span>
-            <span class="hint">Bitham is the system font and only comes in one size. Montserrat and Roboto are bundled, so they scale up to fill the space inside the ring.</span>
+            <span class="hint">Bitham is the system font and only comes in one size. Montserrat and Roboto are bundled, so they scale up to fill the space inside the ring. LECO is deliberately oversized and will overlap the ring.</span>
           </span>
           <div class="font-grid">
             <label class="font-option">
@@ -363,6 +363,10 @@
             <label class="font-option">
               <input id="font_roboto" type="radio" name="clockfont" value="roboto" />
               <span class="font-name">Roboto</span>
+            </label>
+            <label class="font-option">
+              <input id="font_leco" type="radio" name="clockfont" value="leco" />
+              <span class="font-name">LECO</span>
             </label>
           </div>
         </div>
@@ -557,7 +561,8 @@
         if (!clockFont) {
           clockFont = persistRead('fontRoboto', 'false') === 'true' ? 'roboto' : 'bitham';
         }
-        document.getElementById('font_' + (clockFont === 'mont' ? 'mont' : clockFont === 'roboto' ? 'roboto' : 'bitham')).checked = true;
+        var fontEl = document.getElementById('font_' + clockFont);
+        (fontEl || document.getElementById('font_bitham')).checked = true;
         document.getElementById('check_boldText').checked = persistRead('boldText', 'false') === 'true';
         document.getElementById('check_boldDots').checked = persistRead('boldDots', 'false') === 'true';
         document.getElementById('check_minmarks').checked = persistRead('minmarks', 'false') === 'true';
@@ -620,6 +625,7 @@
             'steps': document.getElementById('check_steps').checked ? 'true' : 'false',
             'fontRoboto': selectedClockFont() === 'roboto' ? 'true' : 'false',
             'fontMont': selectedClockFont() === 'mont' ? 'true' : 'false',
+            'fontLeco': selectedClockFont() === 'leco' ? 'true' : 'false',
             'boldText': document.getElementById('check_boldText').checked ? 'true' : 'false',
             'boldDots': document.getElementById('check_boldDots').checked ? 'true' : 'false',
             'minmarks': document.getElementById('check_minmarks').checked ? 'true' : 'false',

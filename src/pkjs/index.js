@@ -1,4 +1,4 @@
-var VERSION = "1.0";
+var VERSION = "2.1";
 
 var showWeather = 0;
 
@@ -39,7 +39,8 @@ Pebble.addEventListener('webviewclosed', function(e) {
     "PERSIST_KEY_FITDOTS": '' + json.fitdots,
     "PERSIST_KEY_BATTERY": '' + json.battery,
     "PERSIST_KEY_FONT_ROBOTO": '' + json.fontRoboto,
-    "PERSIST_KEY_FONT_MONT": '' + json.fontMont
+    "PERSIST_KEY_FONT_MONT": '' + json.fontMont,
+    "PERSIST_KEY_FONT_LECO": '' + json.fontLeco
   };
 
   // Drop anything the config page didn't actually send. Without this a cached

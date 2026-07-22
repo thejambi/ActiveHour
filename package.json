@@ -33,6 +33,7 @@
             "PERSIST_KEY_CUSTOM_TIME": 19,
             "PERSIST_KEY_DATE": 0,
             "PERSIST_KEY_FITDOTS": 17,
+            "PERSIST_KEY_FONT_LECO": 27,
             "PERSIST_KEY_FONT_MONT": 26,
             "PERSIST_KEY_FONT_ROBOTO": 25,
             "PERSIST_KEY_MINMARKS": 15,

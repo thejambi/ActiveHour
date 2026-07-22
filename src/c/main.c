@@ -77,9 +77,10 @@
 // one is true, and all-false means the Bitham system font.
 #define PERSIST_KEY_FONT_ROBOTO 25   // bool: Roboto time font
 #define PERSIST_KEY_FONT_MONT   26   // bool: Montserrat time font
-// s_arr spans keys 0..26. Keys 12-14 are retired and 18-23 hold the color ints,
+#define PERSIST_KEY_FONT_LECO   27   // bool: LECO time font (system, oversized)
+// s_arr spans keys 0..27. Keys 12-14 are retired and 18-23 hold the color ints,
 // so those slots are dead weight in the bool cache — never read via config_get().
-#define NUM_SETTINGS            27
+#define NUM_SETTINGS            28
 
 // Battery indication: dot i (0-based, outward) stays bold only while the charge
 // is at or above (i+1)*10 percent — under 50% the 5th dot thins, under 40% the
@@ -400,10 +401,14 @@ static void setLayerTextColors() {
 typedef enum {
   CLOCK_FONT_BITHAM = 0,
   CLOCK_FONT_ROBOTO,
-  CLOCK_FONT_MONT
+  CLOCK_FONT_MONT,
+  CLOCK_FONT_LECO
 } ClockFont;
 
 static ClockFont getClockFont() {
+  if (config_get(PERSIST_KEY_FONT_LECO)) {
+    return CLOCK_FONT_LECO;
+  }
   if (config_get(PERSIST_KEY_FONT_MONT)) {
     return CLOCK_FONT_MONT;
   }
@@ -411,6 +416,23 @@ static ClockFont getClockFont() {
     return CLOCK_FONT_ROBOTO;
   }
   return CLOCK_FONT_BITHAM;
+}
+
+// Bitham and LECO are both system fonts, so neither costs resource bytes.
+static GFont systemTimeFont(ClockFont font, bool bold) {
+  if (font == CLOCK_FONT_LECO) {
+    // LECO_60 only exists on the newer platforms, and at 164px wide it only
+    // stays on screen at all on the two big ones. The 144x168 screens fall
+    // back to LECO_42, which has no bold cut — hence the same font either way.
+#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
+    return fonts_get_system_font(bold ? FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM
+                                      : FONT_KEY_LECO_60_NUMBERS_AM_PM);
+#else
+    return fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
+#endif
+  }
+  return fonts_get_system_font(bold ? FONT_KEY_BITHAM_42_BOLD
+                                    : FONT_KEY_BITHAM_42_LIGHT);
 }
 
 // Where the three text layers sit, and how tall the time font is. Bitham always
@@ -430,6 +452,20 @@ static TextLayout getTextLayout() {
   if (font == CLOCK_FONT_BITHAM) {
     // 42px on every platform, original layout.
     l.timeH = 42; l.timeY = TIME_Y; l.stepY = STEP_Y; l.dateY = DATE_Y;
+    return l;
+  }
+
+  if (font == CLOCK_FONT_LECO) {
+    // Deliberately oversized: LECO 60 measures 164 against a 152 budget on
+    // emery and 162 on gabbro, so the digits overlap the innermost ring dots.
+    // Kept as an option anyway because the look is the point.
+#if defined(PBL_PLATFORM_EMERY)
+    l.timeH = 60; l.timeY = 75; l.stepY = 60; l.dateY = 138;
+#elif defined(PBL_PLATFORM_GABBRO)
+    l.timeH = 60; l.timeY = 90; l.stepY = 75; l.dateY = 153;
+#else
+    l.timeH = 42; l.timeY = TIME_Y; l.stepY = STEP_Y; l.dateY = DATE_Y;
+#endif
     return l;
   }
 
@@ -520,13 +556,14 @@ static void setLayerFonts() {
   // In both branches the layer is pointed at the new font before the old one
   // is released, so it never references freed memory.
   GFont previous = s_timeFont;
-  if (getClockFont() != CLOCK_FONT_BITHAM) {
+  ClockFont font = getClockFont();
+  if (font == CLOCK_FONT_ROBOTO || font == CLOCK_FONT_MONT) {
     s_timeFont = fonts_load_custom_font(resource_get_handle(timeFontResource()));
     text_layer_set_font(s_time_layer, s_timeFont);
   } else {
+    // Bitham and LECO come from the firmware — nothing to load or free.
     s_timeFont = NULL;
-    text_layer_set_font(s_time_layer, fonts_get_system_font(bold ? FONT_KEY_BITHAM_42_BOLD
-                                                                 : FONT_KEY_BITHAM_42_LIGHT));
+    text_layer_set_font(s_time_layer, systemTimeFont(font, bold));
   }
   if (previous != NULL) {
     fonts_unload_custom_font(previous);
