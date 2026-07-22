@@ -18,13 +18,16 @@
 #define DOT_SIZE_DEFAULT     1
 #define DOT_SIZE_BOLD        2
 
-// Vertical positions of the centered text layers. The fonts are the same
-// physical size on every platform, so the larger screens reuse the smaller ones'
-// absolute gaps (step->time ~15px, time->date 45px) with the time placed at the
-// same fraction of screen height (~0.46, sitting above center to leave room for
-// the date below): emery from basalt, gabbro from chalk. Gabbro must come before
-// the generic PBL_ROUND check since it's also a round display. Flint (144x168,
-// like diorite) falls through to the rectangular default.
+// Vertical positions of the centered text layers, for the platforms that use
+// the 42px system font. The time text is centered at ~0.46 of screen height
+// (above center, to leave room for the date below) with absolute gaps of
+// step->time ~15px and time->date 45px. Gabbro must come before the generic
+// PBL_ROUND check since it's also a round display. Flint (144x168, like
+// diorite) falls through to the rectangular default.
+//
+// emery and gabbro no longer use these: they size the time font to the space
+// inside the ring instead, so their positions are computed in getTextLayout()
+// from the chosen font height.
 #if defined(PBL_PLATFORM_EMERY)
   #define TIME_Y  83
   #define STEP_Y  68
@@ -62,7 +65,6 @@
 #define PERSIST_KEY_MINMARKS    15
 #define PERSIST_KEY_CLR_CUSTOM  16   // bool: custom theme on
 #define PERSIST_KEY_FITDOTS     17   // bool: emery-only, pull ring in
-#define NUM_SETTINGS            18   // all bool settings occupy keys 0..17
 // Custom theme colors: packed 0xRRGGBB ints, read separately from the bool cache.
 #define PERSIST_KEY_CUSTOM_BG         18
 #define PERSIST_KEY_CUSTOM_TIME       19
@@ -70,6 +72,16 @@
 #define PERSIST_KEY_CUSTOM_DOT_DIM    21
 #define PERSIST_KEY_CUSTOM_STEPS      22
 #define PERSIST_KEY_CUSTOM_DATE       23
+#define PERSIST_KEY_BATTERY     24   // bool: thin out dots as the battery drains
+#define PERSIST_KEY_FONT_ROBOTO 25   // bool: Roboto time font (off = Bitham)
+// s_arr spans keys 0..25. Keys 12-14 are retired and 18-23 hold the color ints,
+// so those slots are dead weight in the bool cache — never read via config_get().
+#define NUM_SETTINGS            26
+
+// Battery indication: dot i (0-based, outward) stays bold only while the charge
+// is at or above (i+1)*10 percent — under 50% the 5th dot thins, under 40% the
+// 4th follows, and so on down to a fully thin ring under 10%.
+#define BATTERY_STEP_PER_DOT    10
 
 // Defaults for the custom theme (a legible dark scheme).
 #define CUSTOM_BG_DEFAULT         0x000000
@@ -106,6 +118,9 @@ static bool hasWeather = false;
 static int weatherTemp;
 
 static int s_dotSize = DOT_SIZE_DEFAULT;
+
+// Current charge percent, kept fresh by battery_handler().
+static int s_batteryLevel = 100;
 
 static bool s_arr[NUM_SETTINGS];
 
@@ -153,15 +168,23 @@ void config_init() {
   if(!persist_exists(PERSIST_DEFAULTS_SET)) {
     persist_write_bool(PERSIST_DEFAULTS_SET, true);
 
-    persist_write_bool(PERSIST_KEY_DATE, false);
-    persist_write_bool(PERSIST_KEY_STEPS, false);
-    persist_write_bool(PERSIST_KEY_CLR_BW, true);
-    persist_write_bool(PERSIST_KEY_CLR_ORANGE, false);
+    // Fresh installs get the fully-featured look: Orange theme, bold text and
+    // dots, hour marks, battery indication, date and steps all on. Weather is
+    // the deliberate exception — it would prompt for location before the user
+    // has asked for anything.
+    persist_write_bool(PERSIST_KEY_DATE, true);
+    persist_write_bool(PERSIST_KEY_STEPS, true);
+    persist_write_bool(PERSIST_KEY_CLR_BW, false);
+    persist_write_bool(PERSIST_KEY_CLR_ORANGE, true);
     persist_write_bool(PERSIST_KEY_CLR_GREEN, false);
     persist_write_bool(PERSIST_KEY_CLR_BLUE, false);
     persist_write_bool(PERSIST_KEY_WEATHER, false);
-    persist_write_bool(PERSIST_KEY_BOLD_TEXT, false);
-    persist_write_bool(PERSIST_KEY_BOLD_DOTS, false);
+    persist_write_bool(PERSIST_KEY_BOLD_TEXT, true);
+    persist_write_bool(PERSIST_KEY_BOLD_DOTS, true);
+    persist_write_bool(PERSIST_KEY_MINMARKS, true);
+    persist_write_bool(PERSIST_KEY_FITDOTS, true);
+    persist_write_bool(PERSIST_KEY_BATTERY, true);
+    persist_write_bool(PERSIST_KEY_FONT_ROBOTO, true);
   }
 
   for(int i = 0; i < NUM_SETTINGS; i++) {
@@ -366,16 +389,98 @@ static void setLayerTextColors() {
   text_layer_set_text_color(s_dayt_layer, getDateColor());
 }
 
-static void setLayerFonts() {
-  if (config_get(PERSIST_KEY_BOLD_TEXT)) {
-    text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
-    text_layer_set_font(s_step_count_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-    text_layer_set_font(s_dayt_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-  } else {
-    text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT));
-    text_layer_set_font(s_step_count_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
-    text_layer_set_font(s_dayt_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
+// Where the three text layers sit, and how tall the time font is. Bitham only
+// exists as a 42px system font, so it always uses the compile-time positions.
+// Roboto is a bundled resource and can be sized to the room inside the ring,
+// which on emery and gabbro means larger text and different positions.
+typedef struct {
+  int timeY;
+  int stepY;
+  int dateY;
+  int timeH;
+} TextLayout;
+
+static TextLayout getTextLayout() {
+  TextLayout l;
+
+  if (!config_get(PERSIST_KEY_FONT_ROBOTO)) {
+    // Bitham: 42px on every platform, original layout.
+    l.timeH = 42; l.timeY = TIME_Y; l.stepY = STEP_Y; l.dateY = DATE_Y;
+    return l;
   }
+
+#if defined(PBL_PLATFORM_EMERY)
+  if (config_get(PERSIST_KEY_FITDOTS)) {
+    // Ring pulled in to DOT_DISTANCE 70 — less room inside it.
+    l.timeH = 48; l.timeY = 81; l.stepY = 66; l.dateY = 132;
+  } else {
+    // Ring left at DOT_DISTANCE 82 — the edge dots crop, but the wider gap
+    // inside the ring buys a much larger time.
+    l.timeH = 58; l.timeY = 76; l.stepY = 61; l.dateY = 137;
+  }
+#elif defined(PBL_PLATFORM_GABBRO)
+  l.timeH = 60; l.timeY = 90; l.stepY = 75; l.dateY = 153;
+#else
+  // 144x168 and chalk have no headroom: Roboto 42 measures 108 against a 108
+  // budget, so 40 is the largest that clears the ring.
+  l.timeH = 40; l.timeY = TIME_Y; l.stepY = STEP_Y; l.dateY = DATE_Y;
+#endif
+  return l;
+}
+
+static void applyTextLayout() {
+  GRect bounds = layer_get_bounds(window_get_root_layer(s_main_window));
+  TextLayout l = getTextLayout();
+
+  layer_set_frame(text_layer_get_layer(s_time_layer),
+                  GRect(0, l.timeY, bounds.size.w, l.timeH + 8));
+  layer_set_frame(text_layer_get_layer(s_step_count_layer),
+                  GRect(0, l.stepY, bounds.size.w, 40));
+  layer_set_frame(text_layer_get_layer(s_dayt_layer),
+                  GRect(0, l.dateY, bounds.size.w, 40));
+}
+
+// Roboto face currently loaded, or NULL when the time is using system Bitham.
+// Held so it can be released when the weight, layout or font choice changes.
+static GFont s_timeFont = NULL;
+
+static uint32_t timeFontResource() {
+  bool bold = config_get(PERSIST_KEY_BOLD_TEXT);
+#if defined(PBL_PLATFORM_EMERY)
+  if (config_get(PERSIST_KEY_FITDOTS)) {
+    return bold ? RESOURCE_ID_FONT_TIME_B_48 : RESOURCE_ID_FONT_TIME_L_48;
+  }
+  return bold ? RESOURCE_ID_FONT_TIME_B_58 : RESOURCE_ID_FONT_TIME_L_58;
+#elif defined(PBL_PLATFORM_GABBRO)
+  return bold ? RESOURCE_ID_FONT_TIME_B_60 : RESOURCE_ID_FONT_TIME_L_60;
+#else
+  return bold ? RESOURCE_ID_FONT_TIME_B_40 : RESOURCE_ID_FONT_TIME_L_40;
+#endif
+}
+
+static void setLayerFonts() {
+  bool bold = config_get(PERSIST_KEY_BOLD_TEXT);
+  GFont textFont = fonts_get_system_font(bold ? FONT_KEY_GOTHIC_18_BOLD
+                                              : FONT_KEY_GOTHIC_18);
+  text_layer_set_font(s_step_count_layer, textFont);
+  text_layer_set_font(s_dayt_layer, textFont);
+
+  // In both branches the layer is pointed at the new font before the old one
+  // is released, so it never references freed memory.
+  GFont previous = s_timeFont;
+  if (config_get(PERSIST_KEY_FONT_ROBOTO)) {
+    s_timeFont = fonts_load_custom_font(resource_get_handle(timeFontResource()));
+    text_layer_set_font(s_time_layer, s_timeFont);
+  } else {
+    s_timeFont = NULL;
+    text_layer_set_font(s_time_layer, fonts_get_system_font(bold ? FONT_KEY_BITHAM_42_BOLD
+                                                                 : FONT_KEY_BITHAM_42_LIGHT));
+  }
+  if (previous != NULL) {
+    fonts_unload_custom_font(previous);
+  }
+
+  applyTextLayout();
 }
 
 void send_initial_js_message() {
@@ -641,6 +746,11 @@ static void draw_proc(Layer *layer, GContext *ctx) {
                  && config_get(PERSIST_KEY_MINMARKS)
                  && (m % 5 == 0);
 
+    // Like hour marks, battery indication works by drawing a dot a size
+    // smaller, so it only has a visible effect while bold dots are on.
+    bool batteryInd = config_get(PERSIST_KEY_BOLD_DOTS)
+                   && config_get(PERSIST_KEY_BATTERY);
+
     int v = baseDist;
 
     int numDots = s_dotArray[m];
@@ -662,7 +772,13 @@ static void draw_proc(Layer *layer, GContext *ctx) {
             .x = (int16_t)(sin_lookup(TRIG_MAX_ANGLE * m / 60) * (int32_t)(v) / TRIG_MAX_RATIO) + center.x,
             .y = (int16_t)(-cos_lookup(TRIG_MAX_ANGLE * m / 60) * (int32_t)(v) / TRIG_MAX_RATIO) + center.y,
           };
-          int radius = (hourMark && i == 0) ? s_dotSize - 1 : s_dotSize;
+          int radius = s_dotSize;
+          if (hourMark && i == 0) {
+            radius = s_dotSize - 1;
+          }
+          if (batteryInd && s_batteryLevel < (i + 1) * BATTERY_STEP_PER_DOT) {
+            radius = s_dotSize - 1;
+          }
           graphics_fill_circle(ctx, GPoint(point.x + x, point.y + y), radius);
         }
       }
@@ -697,6 +813,11 @@ static void draw_proc(Layer *layer, GContext *ctx) {
       }
     }
   }
+}
+
+static void battery_handler(BatteryChargeState state) {
+  s_batteryLevel = state.charge_percent;
+  layer_mark_dirty(s_canvas_layer);
 }
 
 static void health_handler(HealthEventType event, void *context) {
@@ -734,6 +855,9 @@ void comm_init() {
   app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
 }
 
+
+
+
 static void main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
@@ -760,13 +884,19 @@ static void main_window_load(Window *window) {
   s_canvas_layer = layer_create(bounds);
   layer_set_update_proc(s_canvas_layer, draw_proc);
   layer_add_child(window_layer, s_canvas_layer);
+
 }
 
 static void main_window_unload(Window *window) {
   text_layer_destroy(s_time_layer);
   text_layer_destroy(s_dayt_layer);
   text_layer_destroy(s_step_count_layer);
-  
+
+  if (s_timeFont != NULL) {
+    fonts_unload_custom_font(s_timeFont);
+    s_timeFont = NULL;
+  }
+
   layer_destroy(s_canvas_layer);
 }
 
@@ -819,7 +949,12 @@ static void init() {
   #endif
   
   s_lastStepTotal = getTotalStepsToday();
-  
+
+  // Seed the charge level before subscribing so the first draw is accurate.
+  // Safe here: the window is already pushed, so s_canvas_layer exists by now.
+  s_batteryLevel = battery_state_service_peek().charge_percent;
+  battery_state_service_subscribe(battery_handler);
+
   fetchPastMinuteSteps();
 }
 

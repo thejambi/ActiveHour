@@ -36,8 +36,19 @@ Pebble.addEventListener('webviewclosed', function(e) {
     "PERSIST_KEY_BOLD_TEXT": '' + json.boldText,
     "PERISST_KEY_BOLD_DOTS": '' + json.boldDots,
     "PERSIST_KEY_MINMARKS": '' + json.minmarks,
-    "PERSIST_KEY_FITDOTS": '' + json.fitdots
+    "PERSIST_KEY_FITDOTS": '' + json.fitdots,
+    "PERSIST_KEY_BATTERY": '' + json.battery,
+    "PERSIST_KEY_FONT_ROBOTO": '' + json.fontRoboto
   };
+
+  // Drop anything the config page didn't actually send. Without this a cached
+  // or stale page silently switches off every setting it doesn't know about:
+  // a missing field stringifies to "undefined", which the watch reads as false.
+  Object.keys(options).forEach(function(key) {
+    if (options[key] === 'undefined' || options[key] === undefined) {
+      delete options[key];
+    }
+  });
 
   Pebble.sendAppMessage(options,
     function(e) {

@@ -323,6 +323,15 @@
         <p class="card-title">Style</p>
 
         <label class="setting">
+          <span class="setting-text">
+            <span class="label">Roboto clock font</span>
+            <span class="hint">Off uses the classic Bitham font, which is only available at one size. Roboto scales up to fill the space inside the ring.</span>
+          </span>
+          <input class="switch-input" id="check_fontRoboto" type="checkbox" />
+          <span class="switch"></span>
+        </label>
+
+        <label class="setting">
           <span class="setting-text"><span class="label">Bold text</span></span>
           <input class="switch-input" id="check_boldText" type="checkbox" />
           <span class="switch"></span>
@@ -346,9 +355,18 @@
         <label class="setting">
           <span class="setting-text">
             <span class="label">Fit dots on screen</span>
-            <span class="hint">Pebble Time 2 only — pulls the ring in so edge dots aren't clipped</span>
+            <span class="hint">Pebble Time 2 only — pulls the ring in so edge dots aren't clipped. Turn off for a larger clock instead.</span>
           </span>
           <input class="switch-input" id="check_fitdots" type="checkbox" />
+          <span class="switch"></span>
+        </label>
+
+        <label class="setting">
+          <span class="setting-text">
+            <span class="label">Battery level</span>
+            <span class="hint">Shown when using bold dots — outer dots thin out as the battery drains</span>
+          </span>
+          <input class="switch-input" id="check_battery" type="checkbox" />
           <span class="switch"></span>
         </label>
       </section>
@@ -468,16 +486,18 @@
           persistWrite('first-time', true);
           console.log('This is the first launch!');
 
-          // Align with watchapp defaults
+          // Align with watchapp defaults (config_init() in main.c)
           persistWrite('date', 'true');
           persistWrite('steps', 'true');
-          persistWrite('boldText', 'false');
-          persistWrite('boldDots', 'false');
-          persistWrite('minmarks', 'false');
-          persistWrite('fitdots', 'false');
+          persistWrite('fontRoboto', 'true');
+          persistWrite('boldText', 'true');
+          persistWrite('boldDots', 'true');
+          persistWrite('minmarks', 'true');
+          persistWrite('fitdots', 'true');
+          persistWrite('battery', 'true');
           persistWrite('weather', 'false');
-          persistWrite('clr_bw', 'true');
-          persistWrite('clr_orange', 'false');
+          persistWrite('clr_bw', 'false');
+          persistWrite('clr_orange', 'true');
           persistWrite('clr_green', 'false');
           persistWrite('clr_blue', 'false');
           persistWrite('clr_purple', 'false');
@@ -496,10 +516,12 @@
       function loadConfig() {
         document.getElementById('check_date').checked = persistRead('date', 'false') === 'true';
         document.getElementById('check_steps').checked = persistRead('steps', 'false') === 'true';
+        document.getElementById('check_fontRoboto').checked = persistRead('fontRoboto', 'false') === 'true';
         document.getElementById('check_boldText').checked = persistRead('boldText', 'false') === 'true';
         document.getElementById('check_boldDots').checked = persistRead('boldDots', 'false') === 'true';
         document.getElementById('check_minmarks').checked = persistRead('minmarks', 'false') === 'true';
         document.getElementById('check_fitdots').checked = persistRead('fitdots', 'false') === 'true';
+        document.getElementById('check_battery').checked = persistRead('battery', 'false') === 'true';
         document.getElementById('check_weather').checked = persistRead('weather', 'false') === 'true';
         document.getElementById('check_clr_bw').checked = persistRead('clr_bw', 'false') === 'true';
         document.getElementById('check_clr_orange').checked = persistRead('clr_orange', 'false') === 'true';
@@ -527,13 +549,16 @@
         xhr.send();
       };
 
-      function getQueryParam(query, defaultValue) {
+      function getQueryParam(name, defaultValue) {
+        // NB: the local must not be called `name` — shadowing the parameter is
+        // what previously made this always miss and fall back to the default,
+        // which broke `return_to` (and so `pebble emu-app-config`).
         var query = location.search.substring(1);
         var vars = query.split('&');
         for (var i = 0; i < vars.length; i++) {
           var pair = vars[i].split('=');
-          // If the query query parameter is found, decode it to use and return it for use
-          if (pair[0] === query) {
+          // If the query parameter is found, decode it and return it for use
+          if (pair[0] === name) {
             return decodeURIComponent(pair[1]);
           }
         }
@@ -546,10 +571,12 @@
           var options = {
             'date': document.getElementById('check_date').checked ? 'true' : 'false',
             'steps': document.getElementById('check_steps').checked ? 'true' : 'false',
+            'fontRoboto': document.getElementById('check_fontRoboto').checked ? 'true' : 'false',
             'boldText': document.getElementById('check_boldText').checked ? 'true' : 'false',
             'boldDots': document.getElementById('check_boldDots').checked ? 'true' : 'false',
             'minmarks': document.getElementById('check_minmarks').checked ? 'true' : 'false',
             'fitdots': document.getElementById('check_fitdots').checked ? 'true' : 'false',
+            'battery': document.getElementById('check_battery').checked ? 'true' : 'false',
             'weather': document.getElementById('check_weather').checked ? 'true' : 'false',
             'clr_bw': document.getElementById('check_clr_bw').checked ? 'true' : 'false',
             'clr_orange': document.getElementById('check_clr_orange').checked ? 'true' : 'false',
@@ -569,6 +596,7 @@
 
           persistWrite('date', options.date);
           persistWrite('steps', options.steps);
+          persistWrite('fontRoboto', options.fontRoboto);
           persistWrite('boldText', options.boldText);
           persistWrite('boldDots', options.boldDots);
           persistWrite('minmarks', options.minmarks);
@@ -588,6 +616,7 @@
           persistWrite('custom_steps', options.custom_steps);
           persistWrite('custom_date', options.custom_date);
           persistWrite('fitdots', options.fitdots);
+          persistWrite('battery', options.battery);
 
           // Set the return URL depending on the runtime environment
           var return_to = getQueryParam('return_to', 'pebblejs://close#');
