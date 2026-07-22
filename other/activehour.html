@@ -142,6 +142,30 @@
       .switch-input:checked ~ .switch::after { transform: translateX(20px); }
       .switch-input:focus-visible ~ .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+      /* ---------- Font selector ---------- */
+      .font-row { display: block; padding: 14px 0; border-top: 1px solid var(--divider); }
+      .font-row:first-of-type { border-top: none; }
+      .font-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+      .font-option { position: relative; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+      .font-option input { position: absolute; opacity: 0; width: 0; height: 0; }
+      .font-name {
+        display: block;
+        text-align: center;
+        padding: 11px 6px;
+        border-radius: 12px;
+        border: 1px solid var(--card-border);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-dim);
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .font-option input:checked ~ .font-name {
+        background: var(--accent-grad);
+        border-color: transparent;
+        color: #fff;
+      }
+      .font-option input:focus-visible ~ .font-name { outline: 2px solid var(--accent); outline-offset: 2px; }
+
       /* ---------- Color swatches ---------- */
       .swatch-grid {
         display: grid;
@@ -322,14 +346,26 @@
       <section class="card">
         <p class="card-title">Style</p>
 
-        <label class="setting">
+        <div class="font-row">
           <span class="setting-text">
-            <span class="label">Roboto clock font</span>
-            <span class="hint">Off uses the classic Bitham font, which is only available at one size. Roboto scales up to fill the space inside the ring.</span>
+            <span class="label">Clock font</span>
+            <span class="hint">Bitham is the system font and only comes in one size. Montserrat and Roboto are bundled, so they scale up to fill the space inside the ring.</span>
           </span>
-          <input class="switch-input" id="check_fontRoboto" type="checkbox" />
-          <span class="switch"></span>
-        </label>
+          <div class="font-grid">
+            <label class="font-option">
+              <input id="font_bitham" type="radio" name="clockfont" value="bitham" />
+              <span class="font-name">Bitham</span>
+            </label>
+            <label class="font-option">
+              <input id="font_mont" type="radio" name="clockfont" value="mont" />
+              <span class="font-name">Montserrat</span>
+            </label>
+            <label class="font-option">
+              <input id="font_roboto" type="radio" name="clockfont" value="roboto" />
+              <span class="font-name">Roboto</span>
+            </label>
+          </div>
+        </div>
 
         <label class="setting">
           <span class="setting-text"><span class="label">Bold text</span></span>
@@ -489,7 +525,7 @@
           // Align with watchapp defaults (config_init() in main.c)
           persistWrite('date', 'true');
           persistWrite('steps', 'true');
-          persistWrite('fontRoboto', 'true');
+          persistWrite('clockFont', 'mont');
           persistWrite('boldText', 'true');
           persistWrite('boldDots', 'true');
           persistWrite('minmarks', 'true');
@@ -516,7 +552,12 @@
       function loadConfig() {
         document.getElementById('check_date').checked = persistRead('date', 'false') === 'true';
         document.getElementById('check_steps').checked = persistRead('steps', 'false') === 'true';
-        document.getElementById('check_fontRoboto').checked = persistRead('fontRoboto', 'false') === 'true';
+        // Older installs stored only the fontRoboto bool; map it forward.
+        var clockFont = persistRead('clockFont', null);
+        if (!clockFont) {
+          clockFont = persistRead('fontRoboto', 'false') === 'true' ? 'roboto' : 'bitham';
+        }
+        document.getElementById('font_' + (clockFont === 'mont' ? 'mont' : clockFont === 'roboto' ? 'roboto' : 'bitham')).checked = true;
         document.getElementById('check_boldText').checked = persistRead('boldText', 'false') === 'true';
         document.getElementById('check_boldDots').checked = persistRead('boldDots', 'false') === 'true';
         document.getElementById('check_minmarks').checked = persistRead('minmarks', 'false') === 'true';
@@ -565,13 +606,20 @@
         return defaultValue || false;
       }
 
+      // The watch takes two mutually-exclusive bools; all-false means Bitham.
+      function selectedClockFont() {
+        var picked = document.querySelector('input[name="clockfont"]:checked');
+        return picked ? picked.value : 'bitham';
+      }
+
       var submitButton = document.getElementById('save_button');
       submitButton.addEventListener('click',
         function() {
           var options = {
             'date': document.getElementById('check_date').checked ? 'true' : 'false',
             'steps': document.getElementById('check_steps').checked ? 'true' : 'false',
-            'fontRoboto': document.getElementById('check_fontRoboto').checked ? 'true' : 'false',
+            'fontRoboto': selectedClockFont() === 'roboto' ? 'true' : 'false',
+            'fontMont': selectedClockFont() === 'mont' ? 'true' : 'false',
             'boldText': document.getElementById('check_boldText').checked ? 'true' : 'false',
             'boldDots': document.getElementById('check_boldDots').checked ? 'true' : 'false',
             'minmarks': document.getElementById('check_minmarks').checked ? 'true' : 'false',
@@ -596,7 +644,7 @@
 
           persistWrite('date', options.date);
           persistWrite('steps', options.steps);
-          persistWrite('fontRoboto', options.fontRoboto);
+          persistWrite('clockFont', selectedClockFont());
           persistWrite('boldText', options.boldText);
           persistWrite('boldDots', options.boldDots);
           persistWrite('minmarks', options.minmarks);

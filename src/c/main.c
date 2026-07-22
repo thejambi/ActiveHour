@@ -73,10 +73,13 @@
 #define PERSIST_KEY_CUSTOM_STEPS      22
 #define PERSIST_KEY_CUSTOM_DATE       23
 #define PERSIST_KEY_BATTERY     24   // bool: thin out dots as the battery drains
-#define PERSIST_KEY_FONT_ROBOTO 25   // bool: Roboto time font (off = Bitham)
-// s_arr spans keys 0..25. Keys 12-14 are retired and 18-23 hold the color ints,
+// Clock font choice. Radio-style, matching how the color presets work: at most
+// one is true, and all-false means the Bitham system font.
+#define PERSIST_KEY_FONT_ROBOTO 25   // bool: Roboto time font
+#define PERSIST_KEY_FONT_MONT   26   // bool: Montserrat time font
+// s_arr spans keys 0..26. Keys 12-14 are retired and 18-23 hold the color ints,
 // so those slots are dead weight in the bool cache — never read via config_get().
-#define NUM_SETTINGS            26
+#define NUM_SETTINGS            27
 
 // Battery indication: dot i (0-based, outward) stays bold only while the charge
 // is at or above (i+1)*10 percent — under 50% the 5th dot thins, under 40% the
@@ -184,7 +187,10 @@ void config_init() {
     persist_write_bool(PERSIST_KEY_MINMARKS, true);
     persist_write_bool(PERSIST_KEY_FITDOTS, true);
     persist_write_bool(PERSIST_KEY_BATTERY, true);
-    persist_write_bool(PERSIST_KEY_FONT_ROBOTO, true);
+    // Montserrat is the closest of the bundled faces to the classic Bitham
+    // look, so it's the default; Roboto stays a preset away.
+    persist_write_bool(PERSIST_KEY_FONT_ROBOTO, false);
+    persist_write_bool(PERSIST_KEY_FONT_MONT, true);
   }
 
   for(int i = 0; i < NUM_SETTINGS; i++) {
@@ -389,10 +395,27 @@ static void setLayerTextColors() {
   text_layer_set_text_color(s_dayt_layer, getDateColor());
 }
 
-// Where the three text layers sit, and how tall the time font is. Bitham only
-// exists as a 42px system font, so it always uses the compile-time positions.
-// Roboto is a bundled resource and can be sized to the room inside the ring,
-// which on emery and gabbro means larger text and different positions.
+// Which face draws the clock. Bitham is a system font and only exists at 42px;
+// the other two are bundled resources, sized to the room inside the ring.
+typedef enum {
+  CLOCK_FONT_BITHAM = 0,
+  CLOCK_FONT_ROBOTO,
+  CLOCK_FONT_MONT
+} ClockFont;
+
+static ClockFont getClockFont() {
+  if (config_get(PERSIST_KEY_FONT_MONT)) {
+    return CLOCK_FONT_MONT;
+  }
+  if (config_get(PERSIST_KEY_FONT_ROBOTO)) {
+    return CLOCK_FONT_ROBOTO;
+  }
+  return CLOCK_FONT_BITHAM;
+}
+
+// Where the three text layers sit, and how tall the time font is. Bitham always
+// uses the compile-time positions; the bundled faces are sized per layout, so
+// on emery and gabbro they get larger text and their own positions.
 typedef struct {
   int timeY;
   int stepY;
@@ -402,28 +425,44 @@ typedef struct {
 
 static TextLayout getTextLayout() {
   TextLayout l;
+  ClockFont font = getClockFont();
 
-  if (!config_get(PERSIST_KEY_FONT_ROBOTO)) {
-    // Bitham: 42px on every platform, original layout.
+  if (font == CLOCK_FONT_BITHAM) {
+    // 42px on every platform, original layout.
     l.timeH = 42; l.timeY = TIME_Y; l.stepY = STEP_Y; l.dateY = DATE_Y;
     return l;
   }
 
+  // Montserrat's round digits are noticeably wider than Roboto's at the same
+  // size (167 vs 148 at 58px), so it lands a size or two smaller everywhere.
 #if defined(PBL_PLATFORM_EMERY)
   if (config_get(PERSIST_KEY_FITDOTS)) {
     // Ring pulled in to DOT_DISTANCE 70 — less room inside it.
-    l.timeH = 48; l.timeY = 81; l.stepY = 66; l.dateY = 132;
+    if (font == CLOCK_FONT_MONT) {
+      l.timeH = 42; l.timeY = 84; l.stepY = 69; l.dateY = 129;
+    } else {
+      l.timeH = 48; l.timeY = 81; l.stepY = 66; l.dateY = 132;
+    }
   } else {
     // Ring left at DOT_DISTANCE 82 — the edge dots crop, but the wider gap
     // inside the ring buys a much larger time.
-    l.timeH = 58; l.timeY = 74; l.stepY = 61; l.dateY = 137;
+    if (font == CLOCK_FONT_MONT) {
+      l.timeH = 52; l.timeY = 77; l.stepY = 62; l.dateY = 132;
+    } else {
+      l.timeH = 58; l.timeY = 74; l.stepY = 61; l.dateY = 137;
+    }
   }
 #elif defined(PBL_PLATFORM_GABBRO)
-  l.timeH = 60; l.timeY = 90; l.stepY = 75; l.dateY = 153;
+  if (font == CLOCK_FONT_MONT) {
+    l.timeH = 54; l.timeY = 93; l.stepY = 78; l.dateY = 150;
+  } else {
+    l.timeH = 60; l.timeY = 90; l.stepY = 75; l.dateY = 153;
+  }
 #else
   // 144x168 and chalk have no headroom: Roboto 42 measures 108 against a 108
-  // budget, so 40 is the largest that clears the ring.
-  l.timeH = 40; l.timeY = TIME_Y; l.stepY = STEP_Y; l.dateY = DATE_Y;
+  // budget, so 40 is the largest that clears the ring (Montserrat 36).
+  l.timeH = (font == CLOCK_FONT_MONT) ? 36 : 40;
+  l.timeY = TIME_Y; l.stepY = STEP_Y; l.dateY = DATE_Y;
 #endif
   return l;
 }
@@ -440,20 +479,33 @@ static void applyTextLayout() {
                   GRect(0, l.dateY, bounds.size.w, 40));
 }
 
-// Roboto face currently loaded, or NULL when the time is using system Bitham.
+// Bundled face currently loaded, or NULL when the time is using system Bitham.
 // Held so it can be released when the weight, layout or font choice changes.
 static GFont s_timeFont = NULL;
 
 static uint32_t timeFontResource() {
   bool bold = config_get(PERSIST_KEY_BOLD_TEXT);
+  bool mont = (getClockFont() == CLOCK_FONT_MONT);
 #if defined(PBL_PLATFORM_EMERY)
   if (config_get(PERSIST_KEY_FITDOTS)) {
+    if (mont) {
+      return bold ? RESOURCE_ID_FONT_MONT_B_42 : RESOURCE_ID_FONT_MONT_L_42;
+    }
     return bold ? RESOURCE_ID_FONT_TIME_B_48 : RESOURCE_ID_FONT_TIME_L_48;
+  }
+  if (mont) {
+    return bold ? RESOURCE_ID_FONT_MONT_B_52 : RESOURCE_ID_FONT_MONT_L_52;
   }
   return bold ? RESOURCE_ID_FONT_TIME_B_58 : RESOURCE_ID_FONT_TIME_L_58;
 #elif defined(PBL_PLATFORM_GABBRO)
+  if (mont) {
+    return bold ? RESOURCE_ID_FONT_MONT_B_54 : RESOURCE_ID_FONT_MONT_L_54;
+  }
   return bold ? RESOURCE_ID_FONT_TIME_B_60 : RESOURCE_ID_FONT_TIME_L_60;
 #else
+  if (mont) {
+    return bold ? RESOURCE_ID_FONT_MONT_B_36 : RESOURCE_ID_FONT_MONT_L_36;
+  }
   return bold ? RESOURCE_ID_FONT_TIME_B_40 : RESOURCE_ID_FONT_TIME_L_40;
 #endif
 }
@@ -468,7 +520,7 @@ static void setLayerFonts() {
   // In both branches the layer is pointed at the new font before the old one
   // is released, so it never references freed memory.
   GFont previous = s_timeFont;
-  if (config_get(PERSIST_KEY_FONT_ROBOTO)) {
+  if (getClockFont() != CLOCK_FONT_BITHAM) {
     s_timeFont = fonts_load_custom_font(resource_get_handle(timeFontResource()));
     text_layer_set_font(s_time_layer, s_timeFont);
   } else {
@@ -854,6 +906,7 @@ void comm_init() {
   
   app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
 }
+
 
 
 
