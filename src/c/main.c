@@ -425,7 +425,16 @@ static GFont systemTimeFont(ClockFont font, bool bold) {
     // stays on screen at all on the two big ones. The 144x168 screens fall
     // back to LECO_42, which has no bold cut — hence the same font either way.
     // Note: For LECO, always use non-bold.
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
+#if defined(PBL_PLATFORM_EMERY)
+    // Fitted view pulls the ring in to DOT_DISTANCE 70, a 128px budget, where
+    // LECO_60's 164px is buried in the dots. Only the zoom view is wide enough
+    // (152px) for the oversized look to still read.
+    if (config_get(PERSIST_KEY_FITDOTS)) {
+      return fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
+    }
+    return fonts_get_system_font(FONT_KEY_LECO_60_NUMBERS_AM_PM);
+#elif defined(PBL_PLATFORM_GABBRO)
+    // No fit toggle on gabbro, and its 162px budget nearly clears LECO_60.
     return fonts_get_system_font(FONT_KEY_LECO_60_NUMBERS_AM_PM);
 #else
     return fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
@@ -515,11 +524,16 @@ static TextLayout getBaseTextLayout() {
   }
 
   if (font == CLOCK_FONT_LECO) {
-    // Deliberately oversized: LECO 60 measures 164 against a 152 budget on
-    // emery and 162 on gabbro, so the digits overlap the innermost ring dots.
-    // Kept as an option anyway because the look is the point.
+    // Deliberately oversized in zoom view: LECO 60 measures 164 against a 152
+    // budget on emery and 162 on gabbro, so the digits sit over the innermost
+    // ring dots. Kept that way because the look is the point — but the fitted
+    // view's 128px budget is too tight for it, so that drops to LECO 42.
 #if defined(PBL_PLATFORM_EMERY)
-    l.timeH = 60; l.timeY = 75; l.stepY = 60; l.dateY = 138;
+    if (config_get(PERSIST_KEY_FITDOTS)) {
+      l.timeH = 42; l.timeY = 83; l.stepY = 68; l.dateY = 128;
+    } else {
+      l.timeH = 60; l.timeY = 75; l.stepY = 60; l.dateY = 138;
+    }
 #elif defined(PBL_PLATFORM_GABBRO)
     l.timeH = 60; l.timeY = 90; l.stepY = 75; l.dateY = 153;
 #else
