@@ -424,9 +424,9 @@ static GFont systemTimeFont(ClockFont font, bool bold) {
     // LECO_60 only exists on the newer platforms, and at 164px wide it only
     // stays on screen at all on the two big ones. The 144x168 screens fall
     // back to LECO_42, which has no bold cut — hence the same font either way.
+    // Note: For LECO, always use non-bold.
 #if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
-    return fonts_get_system_font(bold ? FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM
-                                      : FONT_KEY_LECO_60_NUMBERS_AM_PM);
+    return fonts_get_system_font(FONT_KEY_LECO_60_NUMBERS_AM_PM);
 #else
     return fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
 #endif
