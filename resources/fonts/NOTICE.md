@@ -9,20 +9,25 @@ watchface, not just with this repo.
 | `Roboto-Bold.ttf`, `Roboto-Light.ttf` | Roboto | Apache License 2.0 | Copied from the Pebble SDK's bundled copy (`toolchain/moddable/contributed/conversationalAI/fonts`) |
 | `Montserrat-Bold.ttf`, `Montserrat-Light.ttf` | Montserrat | SIL Open Font License 1.1 | Copied from a local install of the Google Fonts release |
 
-## Outstanding
+## Licence texts
 
-**The full licence texts are not yet in this repo.** Both licences require them
-to accompany redistribution:
+Both are present, as both licences require them to accompany redistribution
+(OFL 1.1 for the font itself even when embedded; Apache 2.0 for a copy of the
+licence plus retention of attribution notices):
 
-- OFL 1.1 requires the copyright notice and licence to be distributed with the
-  font (including when embedded).
-- Apache 2.0 requires a copy of the licence and retention of attribution
-  notices.
+| File | Covers | Fetched from |
+|---|---|---|
+| `OFL-Montserrat.txt` | Montserrat | `raw.githubusercontent.com/JulietaUla/Montserrat/master/OFL.txt` |
+| `LICENSE-2.0-Roboto.txt` | Roboto | `www.apache.org/licenses/LICENSE-2.0.txt` |
 
-Add `OFL.txt` (Montserrat) and `LICENSE-2.0.txt` (Roboto) alongside these files,
-taken from the upstream Google Fonts repositories, before publishing a release.
-Neither was available offline on the machine these were copied from, so this was
-left as a deliberate to-do rather than reconstructed from memory.
+Neither was reconstructed from memory. The OFL body was additionally checked
+byte-for-byte against an unrelated local copy of OFL 1.1 (after normalising
+CRLF) to confirm it is the standard text.
+
+Note the Roboto copy is the plain Apache 2.0 licence from apache.org. Apache 2.0
+also expects any upstream `NOTICE` file to be carried forward; the SDK's bundled
+Roboto ships no `NOTICE`, so there is nothing further to include — but if you
+ever re-source Roboto from a distribution that has one, add it here.
 
 ## Not bundled, deliberately
 
