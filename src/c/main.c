@@ -416,7 +416,7 @@ static TextLayout getTextLayout() {
   } else {
     // Ring left at DOT_DISTANCE 82 — the edge dots crop, but the wider gap
     // inside the ring buys a much larger time.
-    l.timeH = 58; l.timeY = 76; l.stepY = 61; l.dateY = 137;
+    l.timeH = 58; l.timeY = 74; l.stepY = 61; l.dateY = 137;
   }
 #elif defined(PBL_PLATFORM_GABBRO)
   l.timeH = 60; l.timeY = 90; l.stepY = 75; l.dateY = 153;
