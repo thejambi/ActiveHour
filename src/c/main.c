@@ -78,9 +78,13 @@
 #define PERSIST_KEY_FONT_ROBOTO 25   // bool: Roboto time font
 #define PERSIST_KEY_FONT_MONT   26   // bool: Montserrat time font
 #define PERSIST_KEY_FONT_LECO   27   // bool: LECO time font (system, oversized)
-// s_arr spans keys 0..27. Keys 12-14 are retired and 18-23 hold the color ints,
+#define PERSIST_KEY_CENTERED_TIME 28 // bool: 12h mode drops %l's leading space
+#define PERSIST_KEY_BPM         29   // bool: heart rate as a dot inside the ring
+// s_arr spans keys 0..29. Keys 12-14 are retired and 18-23 hold the color ints,
 // so those slots are dead weight in the bool cache — never read via config_get().
-#define NUM_SETTINGS            28
+#define NUM_SETTINGS            30
+// Message-only keys 99 (THEME) and 100 (CLOCK_FONT) exist for the Clay config
+// page; pkjs translates them to the radio bools and never sends them here.
 
 // Battery indication: dot i (0-based, outward) stays bold only while the charge
 // is at or above (i+1)*10 percent — under 50% the 5th dot thins, under 40% the
@@ -197,6 +201,11 @@ void config_init() {
     // look, so it's the default; Roboto stays a preset away.
     persist_write_bool(PERSIST_KEY_FONT_ROBOTO, false);
     persist_write_bool(PERSIST_KEY_FONT_MONT, true);
+    // Both dots-with-side-effects and the leading-space change are opt-in:
+    // weather prompts for location, BPM is sensor-dependent, and centered
+    // time alters the face's signature look.
+    persist_write_bool(PERSIST_KEY_CENTERED_TIME, false);
+    persist_write_bool(PERSIST_KEY_BPM, false);
   }
 
   for(int i = 0; i < NUM_SETTINGS; i++) {
@@ -388,6 +397,12 @@ static void update_time() {
     strftime(buffer, sizeof("00:00"), "%l:%M", tick_time);
     if (SCREENSHOT_RUN) {
       strftime(buffer, sizeof("00:00"), "%l:%S", tick_time);
+    }
+    // %l's leading space keeps the colon steady between 9:59 and 10:00 — the
+    // classic look, and the default. Centered time trades that steadiness for
+    // a tightly centered single-digit hour.
+    if (config_get(PERSIST_KEY_CENTERED_TIME) && buffer[0] == ' ') {
+      memmove(buffer, buffer + 1, strlen(buffer));
     }
   }
   text_layer_set_text(s_time_layer, buffer);
@@ -711,10 +726,14 @@ static void in_recv_handler(DictionaryIterator *iter, void *context) {
     Tuple *t = dict_read_first(iter);
     while(t) {
       if (t->key >= PERSIST_KEY_CUSTOM_BG && t->key <= PERSIST_KEY_CUSTOM_DATE) {
-        // Custom theme colors arrive as packed 0xRRGGBB integers, not bool strings
+        // Custom theme colors arrive as packed 0xRRGGBB integers.
         persist_write_int(t->key, (int)t->value->int32);
+      } else if (t->type == TUPLE_CSTRING) {
+        // Legacy hosted config page sent booleans as "true"/"false" strings.
+        persist_write_bool(t->key, strcmp(t->value->cstring, "true") == 0);
       } else {
-        persist_write_bool(t->key, strcmp(t->value->cstring, "true") == 0 ? true : false);
+        // Clay sends booleans as integers.
+        persist_write_bool(t->key, t->value->int32 != 0);
       }
       t = dict_read_next(iter);
     }
@@ -754,6 +773,19 @@ static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResul
 
 static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
   APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
+}
+
+// Current heart rate in bpm, or 0 when there's no sensor or no reading yet.
+static int getCurrentBPM() {
+#if defined(PBL_HEALTH)
+  time_t now = time(NULL);
+  HealthServiceAccessibilityMask mask =
+      health_service_metric_accessible(HealthMetricHeartRateBPM, now, now);
+  if (mask & HealthServiceAccessibilityMaskAvailable) {
+    return (int)health_service_peek_current_value(HealthMetricHeartRateBPM);
+  }
+#endif
+  return 0;
 }
 
 static int getTotalStepsToday() {
@@ -1010,6 +1042,23 @@ static void draw_proc(Layer *layer, GContext *ctx) {
       }
     }
   }
+
+  if (config_get(PERSIST_KEY_BPM)) {
+    // Heart rate as a dot, same positional idea as the weather dot: 72 bpm
+    // sits at the 12-minute mark. Zero means no sensor / no reading yet, so
+    // nothing draws on watches without heart-rate hardware.
+    int bpm = getCurrentBPM();
+    if (bpm > 0) {
+      int m = bpm % 60;
+      graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorFolly, GColorWhite));
+      int v = baseDist - DOT_SPACING - 1;
+      GPoint point = (GPoint) {
+        .x = (int16_t)(sin_lookup(TRIG_MAX_ANGLE * m / 60) * (int32_t)(v) / TRIG_MAX_RATIO) + center.x,
+        .y = (int16_t)(-cos_lookup(TRIG_MAX_ANGLE * m / 60) * (int32_t)(v) / TRIG_MAX_RATIO) + center.y,
+      };
+      graphics_fill_circle(ctx, point, s_dotSize);
+    }
+  }
 }
 
 static void battery_handler(BatteryChargeState state) {
@@ -1036,7 +1085,10 @@ static void health_handler(HealthEventType event, void *context) {
       // Not used by this watchface
       break;
     case HealthEventHeartRateUpdate:
-      // Not used by this watchface
+      // Refresh the BPM dot when a new reading lands.
+      if (config_get(PERSIST_KEY_BPM)) {
+        layer_mark_dirty(s_canvas_layer);
+      }
       break;
   }
 }

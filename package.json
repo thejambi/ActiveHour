@@ -12,11 +12,14 @@
         "displayName": "ActiveHour",
         "enableMultiJS": true,
         "messageKeys": {
+            "CLOCK_FONT": 100,
             "KEY_JSREADY": 102,
             "KEY_TEMPERATURE": 101,
-            "PERISST_KEY_BOLD_DOTS": 8,
             "PERSIST_KEY_BATTERY": 24,
+            "PERSIST_KEY_BOLD_DOTS": 8,
             "PERSIST_KEY_BOLD_TEXT": 7,
+            "PERSIST_KEY_BPM": 29,
+            "PERSIST_KEY_CENTERED_TIME": 28,
             "PERSIST_KEY_CLR_BLUE": 5,
             "PERSIST_KEY_CLR_BW": 2,
             "PERSIST_KEY_CLR_CUSTOM": 16,
@@ -38,7 +41,8 @@
             "PERSIST_KEY_FONT_ROBOTO": 25,
             "PERSIST_KEY_MINMARKS": 15,
             "PERSIST_KEY_STEPS": 1,
-            "PERSIST_KEY_WEATHER": 6
+            "PERSIST_KEY_WEATHER": 6,
+            "THEME": 99
         },
         "projectType": "native",
         "resources": {
@@ -215,5 +219,5 @@
             "watchface": true
         }
     },
-    "version": "2.1.1"
+    "version": "2.2.0"
 }

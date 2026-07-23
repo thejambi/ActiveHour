@@ -1,58 +1,69 @@
-var VERSION = "2.1";
+/* ---------------------------------------------------------------- config */
+
+// Vendored from pebble-clay 1.0.4 (MIT) — the npm package declares a platform
+// allowlist that predates flint/gabbro and ships only stub binaries, so we
+// carry its self-contained JS bundle directly. See vendor/LICENSE-pebble-clay.txt.
+var Clay = require('./vendor/pebble-clay');
+var clayConfig = require('./config');
+var messageKeys = require('message_keys');
+var clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 
 var showWeather = 0;
 
 Pebble.addEventListener('showConfiguration', function(e) {
-  Pebble.openURL('https://thejambi.github.io/ActiveHour/other/activehour.html?version=' + VERSION);
+  Pebble.openURL(clay.generateUrl());
 });
 
 Pebble.addEventListener('webviewclosed', function(e) {
-  var json = JSON.parse(decodeURIComponent(e.response));
-
-  // Custom theme colors arrive as "#rrggbb" strings; the watch wants packed ints.
-  function hexToInt(hex, fallback) {
-    var v = parseInt(('' + hex).replace('#', ''), 16);
-    return isNaN(v) ? fallback : v;
+  if (!e || !e.response) {
+    console.log('Config closed without saving');
+    return;
   }
 
-  var options = {
-    "PERSIST_KEY_DATE": '' + json.date,
-    "PERSIST_KEY_STEPS": '' + json.steps,
-    "PERSIST_KEY_CLR_BW": '' + json.clr_bw,
-    "PERSIST_KEY_CLR_ORANGE": '' + json.clr_orange,
-    "PERSIST_KEY_CLR_GREEN": '' + json.clr_green,
-    "PERSIST_KEY_CLR_BLUE": '' + json.clr_blue,
-    "PERSIST_KEY_CLR_PURPLE": '' + json.clr_purple,
-    "PERSIST_KEY_CLR_RED": '' + json.clr_red,
-    "PERSIST_KEY_CLR_TEAL": '' + json.clr_teal,
-    "PERSIST_KEY_CLR_CUSTOM": '' + json.clr_custom,
-    "PERSIST_KEY_CUSTOM_BG": hexToInt(json.custom_bg, 0x000000),
-    "PERSIST_KEY_CUSTOM_TIME": hexToInt(json.custom_time, 0xffffff),
-    "PERSIST_KEY_CUSTOM_DOT_ACTIVE": hexToInt(json.custom_dot_active, 0xff6a00),
-    "PERSIST_KEY_CUSTOM_DOT_DIM": hexToInt(json.custom_dot_dim, 0x555555),
-    "PERSIST_KEY_CUSTOM_STEPS": hexToInt(json.custom_steps, 0xaaaaaa),
-    "PERSIST_KEY_CUSTOM_DATE": hexToInt(json.custom_date, 0xaaaaaa),
-    "PERSIST_KEY_WEATHER": '' + json.weather,
-    "PERSIST_KEY_BOLD_TEXT": '' + json.boldText,
-    "PERISST_KEY_BOLD_DOTS": '' + json.boldDots,
-    "PERSIST_KEY_MINMARKS": '' + json.minmarks,
-    "PERSIST_KEY_FITDOTS": '' + json.fitdots,
-    "PERSIST_KEY_BATTERY": '' + json.battery,
-    "PERSIST_KEY_FONT_ROBOTO": '' + json.fontRoboto,
-    "PERSIST_KEY_FONT_MONT": '' + json.fontMont,
-    "PERSIST_KEY_FONT_LECO": '' + json.fontLeco
-  };
+  var dict = clay.getSettings(e.response);
 
-  // Drop anything the config page didn't actually send. Without this a cached
-  // or stale page silently switches off every setting it doesn't know about:
-  // a missing field stringifies to "undefined", which the watch reads as false.
-  Object.keys(options).forEach(function(key) {
-    if (options[key] === 'undefined' || options[key] === undefined) {
-      delete options[key];
+  // The watch stores the clock font as radio-style booleans (all false =
+  // Bitham). Translate the page's single select and drop the virtual key.
+  var font = dict[messageKeys.CLOCK_FONT];
+  delete dict[messageKeys.CLOCK_FONT];
+  dict[messageKeys.PERSIST_KEY_FONT_MONT]   = (font === 'mont')   ? 1 : 0;
+  dict[messageKeys.PERSIST_KEY_FONT_ROBOTO] = (font === 'roboto') ? 1 : 0;
+  dict[messageKeys.PERSIST_KEY_FONT_LECO]   = (font === 'leco')   ? 1 : 0;
+
+  // Same for the color theme presets (all false would mean B&W on-watch, but
+  // the page always sends exactly one preset true, or custom).
+  var theme = dict[messageKeys.THEME];
+  delete dict[messageKeys.THEME];
+  dict[messageKeys.PERSIST_KEY_CLR_BW]     = (theme === 'bw')     ? 1 : 0;
+  dict[messageKeys.PERSIST_KEY_CLR_ORANGE] = (theme === 'orange') ? 1 : 0;
+  dict[messageKeys.PERSIST_KEY_CLR_GREEN]  = (theme === 'green')  ? 1 : 0;
+  dict[messageKeys.PERSIST_KEY_CLR_BLUE]   = (theme === 'blue')   ? 1 : 0;
+  dict[messageKeys.PERSIST_KEY_CLR_PURPLE] = (theme === 'purple') ? 1 : 0;
+  dict[messageKeys.PERSIST_KEY_CLR_RED]    = (theme === 'red')    ? 1 : 0;
+  dict[messageKeys.PERSIST_KEY_CLR_TEAL]   = (theme === 'teal')   ? 1 : 0;
+  dict[messageKeys.PERSIST_KEY_CLR_CUSTOM] = (theme === 'custom') ? 1 : 0;
+
+  // Custom theme colors must reach the watch as packed ints; depending on
+  // Clay's color component internals they can surface as hex strings.
+  [messageKeys.PERSIST_KEY_CUSTOM_BG,
+   messageKeys.PERSIST_KEY_CUSTOM_TIME,
+   messageKeys.PERSIST_KEY_CUSTOM_DOT_ACTIVE,
+   messageKeys.PERSIST_KEY_CUSTOM_DOT_DIM,
+   messageKeys.PERSIST_KEY_CUSTOM_STEPS,
+   messageKeys.PERSIST_KEY_CUSTOM_DATE].forEach(function(k) {
+    if (typeof dict[k] === 'string') {
+      dict[k] = parseInt(dict[k].replace('#', '').replace('0x', ''), 16) || 0;
     }
   });
 
-  Pebble.sendAppMessage(options,
+  // Toggles come back as booleans; the watch reads ints.
+  Object.keys(dict).forEach(function(k) {
+    if (typeof dict[k] === 'boolean') {
+      dict[k] = dict[k] ? 1 : 0;
+    }
+  });
+
+  Pebble.sendAppMessage(dict,
     function(e) {
       console.log('Settings update successful!');
     },
@@ -61,13 +72,7 @@ Pebble.addEventListener('webviewclosed', function(e) {
     });
 });
 
-
-
-
-
-
-
-
+/* ---------------------------------------------------------------- weather */
 
 var xhrRequest = function (url, type, callback) {
   var xhr = new XMLHttpRequest();
@@ -84,10 +89,8 @@ function locationSuccess(pos) {
       pos.coords.latitude + "&longitude=" + pos.coords.longitude +
       "&current=temperature_2m&temperature_unit=fahrenheit";
 
-  // Send request to Open-Meteo
   xhrRequest(url, 'GET',
     function(responseText) {
-      // responseText contains a JSON object with weather info
       var json = JSON.parse(responseText);
 
       if (!json || !json.current || typeof json.current.temperature_2m !== 'number') {
@@ -95,17 +98,10 @@ function locationSuccess(pos) {
         return;
       }
 
-      // Already in Fahrenheit; just round to a whole degree.
       var temperature = Math.round(json.current.temperature_2m);
       console.log("Temperature is " + temperature);
 
-      // Assemble dictionary using our keys
-      var dictionary = {
-        "KEY_TEMPERATURE": temperature
-      };
-
-      // Send to Pebble
-      Pebble.sendAppMessage(dictionary,
+      Pebble.sendAppMessage({ "KEY_TEMPERATURE": temperature },
         function(e) {
           console.log("Weather info sent to Pebble successfully!");
         },
@@ -130,28 +126,22 @@ function getWeather() {
       locationError,
       {timeout: 15000, maximumAge: 60000}
     );
-    
   }
 }
 
 // Listen for when the watchface is opened
-Pebble.addEventListener('ready', 
+Pebble.addEventListener('ready',
   function(e) {
     console.log("PebbleKit JS ready!");
 
-    // Send to Pebble
-    // Assemble dictionary using our keys
-      var dictionary = {
-        "KEY_JSREADY": 1
-      };
-      Pebble.sendAppMessage(dictionary,
-        function(e) {
-          console.log("JS Ready info sent to Pebble successfully!");
-        },
-        function(e) {
-          console.log("Error sending JS Ready info to Pebble!");
-        }
-      );
+    Pebble.sendAppMessage({ "KEY_JSREADY": 1 },
+      function(e) {
+        console.log("JS Ready info sent to Pebble successfully!");
+      },
+      function(e) {
+        console.log("Error sending JS Ready info to Pebble!");
+      }
+    );
   }
 );
 
@@ -172,5 +162,3 @@ Pebble.addEventListener('appmessage',
     }
   }
 );
-
-

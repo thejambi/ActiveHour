@@ -76,7 +76,10 @@ first thing to clean up if redraw behavior ever gets weird.)
 - **Time** — the current time (see Fonts below). In 12-hour mode the hour is
   formatted with `%l`, which leaves a **leading space for single-digit hours.
   This is deliberate**: it keeps the colon visually centered so the time
-  doesn't shift sideways between 9:59 and 10:00. Do not "fix" it.
+  doesn't shift sideways between 9:59 and 10:00. Do not "fix" it in code —
+  the **Centered time display** setting exists for anyone who prefers
+  single-digit hours tightly centered instead (it strips the space; off by
+  default).
 - **Steps/sleep line** — if you've taken more than 500 steps today, today's
   step total; otherwise (i.e. overnight/early morning) last night's sleep as
   `7h 42m`, from `HealthMetricSleepSeconds`. Hours/minutes are bounded with
@@ -112,6 +115,12 @@ Layered on top of the plain dots:
   a dot just inside the ring at minute `temp % 60`. 72° = a dot at the
   12-minute mark. Below 0° it's ice-blue, below 60° aqua, above orange. Its
   colors are fixed (not themeable).
+- **BPM dot** (optional) — heart rate, same positional idea: a dot just
+  inside the ring at minute `bpm % 60`, in a fixed pink-red. Reads
+  `health_service_peek_current_value(HealthMetricHeartRateBPM)` (populated by
+  the firmware's background sampling) and refreshes on
+  `HealthEventHeartRateUpdate`; draws nothing on watches without a
+  heart-rate sensor, where the reading is 0.
 
 ### Fit dots & the zoom view (Pebble Time 2 only)
 
@@ -164,26 +173,34 @@ each face's different internal leading without touching the base layout.
 
 ## Settings
 
-Settings are a hosted HTML page ([other/activehour.html](other/activehour.html),
-served from GitHub Pages) opened by PebbleKit JS. On save, the page returns a
-JSON blob that [index.js](src/pkjs/index.js) forwards to the watch as an
-AppMessage.
+Settings use [Clay](https://github.com/pebble/clay): the config page is
+generated from [src/pkjs/config.js](src/pkjs/config.js) and embedded in the
+app — nothing is hosted, so the page and the watchface can never be out of
+step. Clay is **vendored** at
+[src/pkjs/vendor/pebble-clay.js](src/pkjs/vendor/pebble-clay.js) (MIT, license
+alongside) because the npm package's platform allowlist predates flint and
+gabbro; its "binaries" are empty stubs, so carrying the self-contained JS
+bundle loses nothing.
 
 Details that matter:
 
 - **Message key numbers == persist key numbers** (a historical constraint
-  worth preserving). Booleans arrive as `"true"`/`"false"` strings and are
-  `strcmp`'d; the six custom-theme colors (keys 18–23) arrive as packed
-  `0xRRGGBB` ints and are quantized on-watch to Pebble's 64-color palette
-  with `GColorFromRGB` (and to black/white on the B&W watches).
-- **The JS drops any key the page didn't send.** A missing field would
-  stringify to `"undefined"` and read as *false* on the watch — so saving
-  from a stale cached config page would silently switch off every setting
-  added since. Filtering missing keys means old pages can't clobber new
-  settings.
+  worth preserving). Clay sends booleans as **integers**; the watch also still
+  accepts the legacy `"true"`/`"false"` strings (by tuple type) so saves from
+  the old hosted page — which shipped versions still open — keep working. The
+  six custom-theme colors (keys 18–23) arrive as packed `0xRRGGBB` ints and
+  are quantized on-watch to Pebble's 64-color palette with `GColorFromRGB`
+  (and to black/white on the B&W watches).
+- **Virtual keys never reach the watch.** The page's single Clock font and
+  Color theme selects use JS-only message keys (`CLOCK_FONT` 100, `THEME` 99);
+  [index.js](src/pkjs/index.js) translates them into the radio-style booleans
+  the watch stores (keys 25–27 for fonts, 2–11/16 for themes) and deletes the
+  virtual keys before sending.
 - **Keys 12–14 are retired** (old daily-color/inverted/bluetooth features)
   and intentionally left unused so ancient installs' persisted values can't
   be misread.
+- [other/activehour.html](other/activehour.html) is the **legacy** hosted
+  config page, kept published only for pre-Clay versions of the watchface.
 - **Defaults** are written once, behind a `PERSIST_DEFAULTS_SET` sentinel, so
   they only apply to fresh installs: Orange theme; date, steps, bold text,
   bold dots, hour marks, fit dots, battery, Montserrat all ON. **Weather
