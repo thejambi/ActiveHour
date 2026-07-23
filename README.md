@@ -36,13 +36,23 @@ spacing.
 
 At launch, `fetchPastMinuteSteps()` calls the Pebble Health API's
 `health_service_get_minute_history()` for the last 60 minutes and fills
-`s_dotArray[60]`, indexed by wall-clock minute. Records flagged `is_invalid`
-(watch off wrist, not worn) get the baseline single dot — their `.steps`
-field is undefined garbage and must not be read.
+`s_dotArray[60]`, indexed by wall-clock minute. Two API caveats shape the
+code (see the
+[HealthService docs](https://developer.repebble.com/docs/c/Foundation/Event_Service/HealthService/#health_service_get_minute_history)):
 
-Minute history isn't always available immediately at launch, so if the face
-loads at an "unlucky" minute it marks itself as missing data and refetches
-once at the next minute where `tm_min % 15 == 1`.
+- The call may return **fewer records than requested**, and individual
+  records can be flagged `is_invalid` (watch off wrist, not worn) — an
+  invalid record's `.steps` field is undefined garbage and must not be read.
+  Both cases get the baseline single dot.
+- **The most recent ~15 minutes may not be returned yet.** Minute records
+  become queryable in delayed batches — the official health guide's own
+  example queries "the last hour, *except the last 15 minutes*". So a fetch
+  at launch can leave a gap just behind the current minute.
+
+That gap is why the face refetches once at the next minute where
+`tm_min % 15 == 1` — just past a quarter-hour boundary, when the previously
+unavailable batch has landed. From launch onward the live delta path (below)
+covers new minutes, so history only ever needs to fill in the past.
 
 ### Tracking the current minute live
 
