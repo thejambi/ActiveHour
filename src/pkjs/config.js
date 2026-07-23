@@ -33,6 +33,17 @@ module.exports = [
         defaultValue: true
       },
       {
+        type: 'slider',
+        messageKey: 'PERSIST_KEY_WAKE_THRESHOLD',
+        label: 'Wake threshold',
+        description: 'Show sleep time until this many steps have been taken ' +
+                     'today.',
+        defaultValue: 500,
+        min: 0,
+        max: 2000,
+        step: 50
+      },
+      {
         type: 'toggle',
         messageKey: 'PERSIST_KEY_WEATHER',
         label: 'Weather dot',

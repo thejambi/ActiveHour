@@ -80,10 +80,11 @@ first thing to clean up if redraw behavior ever gets weird.)
   the **Centered time display** setting exists for anyone who prefers
   single-digit hours tightly centered instead (it strips the space; off by
   default).
-- **Steps/sleep line** — if you've taken more than 500 steps today, today's
-  step total; otherwise (i.e. overnight/early morning) last night's sleep as
-  `7h 42m`, from `HealthMetricSleepSeconds`. Hours/minutes are bounded with
-  unsigned modulo so the compiler can prove the string fits its buffer.
+- **Steps/sleep line** — until you've passed the **Wake threshold** (a
+  settings slider, default 500 steps today), last night's sleep as `7h 42m`
+  from `HealthMetricSleepSeconds`; after that, today's step total.
+  Hours/minutes are bounded with unsigned modulo so the compiler can prove
+  the string fits its buffer.
 - **Date** — `Wed, Jul 22` style.
 
 Steps and date lines are each optional (settings).
@@ -250,5 +251,6 @@ src/c/main.c            the whole watchface
 src/pkjs/index.js       PebbleKit JS: config page glue + weather
 other/activehour.html   hosted settings page (GitHub Pages serves this path)
 resources/fonts/        bundled Roboto + Montserrat subsets, licenses, NOTICE.md
+resources/images/       25x25 watch menu icon (menuIcon resource)
 store/                  appstore screenshots and icons
 ```

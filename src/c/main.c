@@ -83,6 +83,9 @@
 // s_arr spans keys 0..29. Keys 12-14 are retired and 18-23 hold the color ints,
 // so those slots are dead weight in the bool cache — never read via config_get().
 #define NUM_SETTINGS            30
+// Int settings above the bool range (like the custom colors, read separately).
+#define PERSIST_KEY_WAKE_THRESHOLD 30  // steps today before sleep display yields to steps
+#define WAKE_THRESHOLD_DEFAULT     500
 // Message-only keys 99 (THEME) and 100 (CLOCK_FONT) exist for the Clay config
 // page; pkjs translates them to the radio bools and never sends them here.
 
@@ -145,6 +148,9 @@ static int s_customDim    = CUSTOM_DOT_DIM_DEFAULT;
 static int s_customSteps  = CUSTOM_STEPS_DEFAULT;
 static int s_customDate   = CUSTOM_DATE_DEFAULT;
 
+// Steps today before the center line stops showing sleep and shows steps.
+static int s_wakeThreshold = WAKE_THRESHOLD_DEFAULT;
+
 /* Config */
 
 // Convert a packed 0xRRGGBB value to the nearest Pebble color (auto-quantizes
@@ -153,8 +159,8 @@ static GColor8 hexToGColor(int hex) {
   return GColorFromRGB((hex >> 16) & 0xFF, (hex >> 8) & 0xFF, hex & 0xFF);
 }
 
-// Read a persisted custom color, falling back to its default if unset.
-static int readCustomColor(int key, int fallback) {
+// Read a persisted int setting, falling back to its default if unset.
+static int readPersistInt(int key, int fallback) {
   return persist_exists(key) ? persist_read_int(key) : fallback;
 }
 
@@ -212,12 +218,14 @@ void config_init() {
     s_arr[i] = persist_read_bool(i);
   }
 
-  s_customBg     = readCustomColor(PERSIST_KEY_CUSTOM_BG,         CUSTOM_BG_DEFAULT);
-  s_customTime   = readCustomColor(PERSIST_KEY_CUSTOM_TIME,       CUSTOM_TIME_DEFAULT);
-  s_customActive = readCustomColor(PERSIST_KEY_CUSTOM_DOT_ACTIVE, CUSTOM_DOT_ACTIVE_DEFAULT);
-  s_customDim    = readCustomColor(PERSIST_KEY_CUSTOM_DOT_DIM,    CUSTOM_DOT_DIM_DEFAULT);
-  s_customSteps  = readCustomColor(PERSIST_KEY_CUSTOM_STEPS,      CUSTOM_STEPS_DEFAULT);
-  s_customDate   = readCustomColor(PERSIST_KEY_CUSTOM_DATE,       CUSTOM_DATE_DEFAULT);
+  s_customBg     = readPersistInt(PERSIST_KEY_CUSTOM_BG,         CUSTOM_BG_DEFAULT);
+  s_customTime   = readPersistInt(PERSIST_KEY_CUSTOM_TIME,       CUSTOM_TIME_DEFAULT);
+  s_customActive = readPersistInt(PERSIST_KEY_CUSTOM_DOT_ACTIVE, CUSTOM_DOT_ACTIVE_DEFAULT);
+  s_customDim    = readPersistInt(PERSIST_KEY_CUSTOM_DOT_DIM,    CUSTOM_DOT_DIM_DEFAULT);
+  s_customSteps  = readPersistInt(PERSIST_KEY_CUSTOM_STEPS,      CUSTOM_STEPS_DEFAULT);
+  s_customDate   = readPersistInt(PERSIST_KEY_CUSTOM_DATE,       CUSTOM_DATE_DEFAULT);
+
+  s_wakeThreshold = readPersistInt(PERSIST_KEY_WAKE_THRESHOLD, WAKE_THRESHOLD_DEFAULT);
 
   if (config_get(PERSIST_KEY_BOLD_DOTS)) {
     s_dotSize = DOT_SIZE_BOLD;
@@ -365,7 +373,7 @@ static int getSleepSeconds() {
 
 static void updateStepsLabel() {
   if (config_get(PERSIST_KEY_STEPS)) {
-    if (s_lastStepTotal > 500) {
+    if (s_lastStepTotal > s_wakeThreshold) {
       // Update step count text
       snprintf(s_step_count_buffer, sizeof(s_step_count_buffer), "%d", s_lastStepTotal);
       text_layer_set_text(s_step_count_layer, s_step_count_buffer);
@@ -725,8 +733,10 @@ static void in_recv_handler(DictionaryIterator *iter, void *context) {
   } else {
     Tuple *t = dict_read_first(iter);
     while(t) {
-      if (t->key >= PERSIST_KEY_CUSTOM_BG && t->key <= PERSIST_KEY_CUSTOM_DATE) {
-        // Custom theme colors arrive as packed 0xRRGGBB integers.
+      if ((t->key >= PERSIST_KEY_CUSTOM_BG && t->key <= PERSIST_KEY_CUSTOM_DATE)
+          || t->key == PERSIST_KEY_WAKE_THRESHOLD) {
+        // Int settings: custom theme colors (packed 0xRRGGBB) and the wake
+        // threshold. Never routed through the boolean cache.
         persist_write_int(t->key, (int)t->value->int32);
       } else if (t->type == TUPLE_CSTRING) {
         // Legacy hosted config page sent booleans as "true"/"false" strings.

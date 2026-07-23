@@ -41,12 +41,19 @@
             "PERSIST_KEY_FONT_ROBOTO": 25,
             "PERSIST_KEY_MINMARKS": 15,
             "PERSIST_KEY_STEPS": 1,
+            "PERSIST_KEY_WAKE_THRESHOLD": 30,
             "PERSIST_KEY_WEATHER": 6,
             "THEME": 99
         },
         "projectType": "native",
         "resources": {
             "media": [
+                {
+                    "type": "bitmap",
+                    "name": "IMAGE_MENU_ICON",
+                    "file": "images/menu_icon.png",
+                    "menuIcon": true
+                },
                 {
                     "type": "font",
                     "name": "FONT_TIME_B_40",
@@ -219,5 +226,5 @@
             "watchface": true
         }
     },
-    "version": "2.2.0"
+    "version": "2.2.1"
 }
