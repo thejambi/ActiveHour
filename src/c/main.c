@@ -401,6 +401,12 @@ static void update_time() {
   static char buffer[] = "00:00";
   if(clock_is_24h_style() == true){
     strftime(buffer, sizeof("00:00"), "%k:%M", tick_time);
+    if (SCREENSHOT_RUN) {
+      // Screenshot mode drives the ring off seconds; show them as the minutes
+      // so the clock matches the ring (this branch previously didn't, which
+      // produced store shots with the ring at :41 and the clock at :01).
+      strftime(buffer, sizeof("00:00"), "%k:%S", tick_time);
+    }
   }else{
     strftime(buffer, sizeof("00:00"), "%l:%M", tick_time);
     if (SCREENSHOT_RUN) {
